@@ -25,6 +25,8 @@ export default function DeepSeekConfig({ open, onOpenChange }: DeepSeekConfigPro
   const [testResult, setTestResult] = useState<any>(null)
   const [showApiKey, setShowApiKey] = useState(false)
   const [error, setError] = useState('')
+  const [originalApiKey, setOriginalApiKey] = useState('')
+  const [apiKeyChanged, setApiKeyChanged] = useState(false)
 
   useEffect(() => {
     if (open) {
@@ -38,6 +40,8 @@ export default function DeepSeekConfig({ open, onOpenChange }: DeepSeekConfigPro
       const response = await deepseekAPI.getConfig()
       if (response.data.success) {
         setConfig(response.data.config)
+        setOriginalApiKey(response.data.config.api_key)
+        setApiKeyChanged(false)
       }
     } catch (error) {
       console.error('加载配置失败:', error)
@@ -51,9 +55,19 @@ export default function DeepSeekConfig({ open, onOpenChange }: DeepSeekConfigPro
       setLoading(true)
       setError('')
       
-      const response = await deepseekAPI.updateConfig(config)
+      // 准备要保存的配置
+      const configToSave = { ...config }
+      
+      // 如果API Key没有改变且是掩码格式，不发送API Key
+      if (!apiKeyChanged && originalApiKey.includes('***')) {
+        delete configToSave.api_key
+      }
+      
+      const response = await deepseekAPI.updateConfig(configToSave)
       if (response.data.success) {
         setTestResult({ success: true, message: '配置保存成功' })
+        // 重新加载配置以获取最新的掩码显示
+        await loadConfig()
       } else {
         setError(response.data.error || '保存失败')
       }
@@ -89,6 +103,20 @@ export default function DeepSeekConfig({ open, onOpenChange }: DeepSeekConfigPro
     }))
     setTestResult(null)
     setError('')
+    
+    // 跟踪API Key是否被修改
+    if (field === 'api_key') {
+      setApiKeyChanged(value !== originalApiKey)
+      
+      // API Key格式验证（只对新输入的API Key进行验证）
+      if (value && !value.includes('***')) {
+        if (!value.startsWith('sk-')) {
+          setError('API Key应以"sk-"开头')
+        } else if (value.length < 20) {
+          setError('API Key长度不足，请检查是否完整')
+        }
+      }
+    }
   }
 
   return (
@@ -129,7 +157,7 @@ export default function DeepSeekConfig({ open, onOpenChange }: DeepSeekConfigPro
                   <div className="relative mt-1">
                     <Input
                       type={showApiKey ? 'text' : 'password'}
-                      placeholder="请输入DeepSeek API Key"
+                      placeholder={config.api_key.includes('***') ? "已保存 (点击修改)" : "sk-xxxxxxxxxxxxxxxx"}
                       value={config.api_key}
                       onChange={(e) => handleInputChange('api_key', e.target.value)}
                       className="pr-10"

@@ -283,17 +283,21 @@ def delete_recreate_history(history_id):
 def deepseek_config():
     """DeepSeek配置管理"""
     if request.method == 'GET':
-        # 获取配置（隐藏API Key）
+        # 获取配置（安全显示API Key）
         deepseek_config = config.get_deepseek_config()
         safe_config = deepseek_config.copy()
+        
+        # 安全显示API Key - 只显示掩码，不影响实际存储
         if safe_config.get('api_key'):
             api_key = safe_config['api_key']
-            if len(api_key) > 8:
-                safe_config['api_key'] = api_key[:8] + '***' + api_key[-4:]
-            elif len(api_key) > 4:
-                safe_config['api_key'] = '***' + api_key[-4:]
-            else:
-                safe_config['api_key'] = '***'
+            # 检查是否已经是掩码格式（避免重复掩码）
+            if '***' not in api_key:
+                if len(api_key) > 12:
+                    safe_config['api_key'] = api_key[:8] + '***' + api_key[-4:]
+                elif len(api_key) > 8:
+                    safe_config['api_key'] = api_key[:4] + '***' + api_key[-4:]
+                else:
+                    safe_config['api_key'] = '***'
         
         return jsonify({
             'success': True,
@@ -305,8 +309,17 @@ def deepseek_config():
         try:
             data = request.get_json()
             
+            # 处理API Key更新
             if 'api_key' in data:
-                config.set_deepseek_api_key(data['api_key'])
+                new_api_key = data['api_key'].strip()
+                # 如果不是掩码格式，才更新（避免保存掩码）
+                if new_api_key and '***' not in new_api_key:
+                    config.set_deepseek_api_key(new_api_key)
+                elif not new_api_key:
+                    # 如果是空值，清空API Key
+                    config.set_deepseek_api_key('')
+                # 如果是掩码格式，保持原有API Key不变
+            
             if 'model' in data:
                 config.set('deepseek.model', data['model'])
             if 'temperature' in data:
