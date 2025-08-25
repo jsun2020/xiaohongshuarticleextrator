@@ -2,6 +2,8 @@
 
 一个完整的小红书笔记数据采集、二创和管理系统，集成了数据采集、AI二创、可视化管理等功能。
 
+**🚀 现已支持 Vercel 部署！** 查看 [Vercel 部署指南](./VERCEL_DEPLOYMENT.md)
+
 ## ✨ 功能特性
 
 - 📝 **数据采集**: 输入链接自动提取笔记信息
@@ -15,9 +17,10 @@
 ## 🛠️ 技术栈
 
 ### 后端
-- **Python Flask** - Web框架
-- **SQLite** - 数据库
+- **Python Serverless Functions** - Vercel兼容的无服务器函数
+- **SQLite/云数据库** - 数据库（支持多种数据库）
 - **DeepSeek API** - AI二创服务
+- **JWT认证** - 无状态认证系统
 - **Requests** - HTTP请求库
 
 ### 前端  
@@ -27,7 +30,24 @@
 - **Radix UI** - 组件库
 - **Lucide React** - 图标库
 
+### 部署
+- **Vercel** - 全栈部署平台
+- **Serverless架构** - 自动扩缩容
+- **全球CDN** - 快速访问
+
 ## 🚀 快速开始
+
+### 部署选项
+
+#### 选项1：Vercel 部署（推荐）
+1. Fork 本仓库到你的 GitHub
+2. 在 [Vercel](https://vercel.com) 中导入项目
+3. 设置环境变量 `JWT_SECRET`
+4. 自动部署完成！
+
+详细步骤请查看 [Vercel 部署指南](./VERCEL_DEPLOYMENT.md)
+
+#### 选项2：本地开发
 
 ### 前置要求
 
@@ -47,42 +67,18 @@ pip install -r requirements.txt
 npm install
 ```
 
-#### 2. 启动服务
-
-**Windows用户：**
-```bash
-# 双击运行
-start.bat
-
-# 或命令行运行
-python run.py
-```
-
-**Linux/Mac用户：**
-```bash
-# 启动后端
-python run.py
-```
-
-#### 3. 启动前端（新开终端窗口）
+#### 2. 启动开发服务器
 
 ```bash
-# 启动前端开发服务器
+# 启动Next.js开发服务器（包含前端和API）
 npm run dev
 ```
 
-#### 4. 访问应用
+#### 3. 访问应用
 
-- 🎨 前端应用: http://localhost:3000
-- 📡 后端API: http://localhost:5000
-- 📚 健康检查: http://localhost:5000/api/health
-
-#### 5. 创建演示数据（可选）
-
-```bash
-# 创建一些演示数据来快速体验功能
-python demo_data.py
-```
+- 🎨 应用地址: http://localhost:3000
+- 📡 API地址: http://localhost:3000/api
+- 📚 健康检查: http://localhost:3000/api/health
 
 ## 🔑 登录信息
 

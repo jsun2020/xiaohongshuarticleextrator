@@ -5,10 +5,16 @@ from datetime import datetime
 from typing import Dict, List, Optional
 
 class XiaohongshuDatabase:
-    """小红书笔记数据库管理类"""
+    """小红书笔记数据库管理类 - Serverless兼容版本"""
     
-    def __init__(self, db_path: str = "xiaohongshu_notes.db"):
-        self.db_path = db_path
+    def __init__(self, db_path: str = None):
+        # 在Serverless环境中，使用临时目录
+        if db_path is None:
+            import tempfile
+            temp_dir = tempfile.gettempdir()
+            self.db_path = os.path.join(temp_dir, "xiaohongshu_notes.db")
+        else:
+            self.db_path = db_path
         self.init_database()
     
     def init_database(self):

@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 """
-用户认证工具函数
+用户认证工具函数 - Serverless版本
 """
 import hashlib
 import secrets
 import re
-from typing import Optional
+import jwt
+import os
+from datetime import datetime, timedelta
+from typing import Optional, Tuple
 
 def hash_password(password: str) -> str:
     """对密码进行哈希加密"""
@@ -81,6 +84,51 @@ def validate_email(email: str) -> tuple[bool, str]:
 def generate_session_token() -> str:
     """生成会话令牌"""
     return secrets.token_urlsafe(32)
+
+# Serverless环境的JWT认证
+JWT_SECRET = os.environ.get('JWT_SECRET', 'xiaohongshu_app_secret_key_2024')
+
+def create_session_token(user_id: int) -> str:
+    """创建JWT会话令牌"""
+    payload = {
+        'user_id': user_id,
+        'exp': datetime.utcnow() + timedelta(days=1),  # 24小时过期
+        'iat': datetime.utcnow()
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm='HS256')
+
+def verify_session_token(token: str) -> Optional[int]:
+    """验证JWT会话令牌并返回用户ID"""
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=['HS256'])
+        return payload.get('user_id')
+    except jwt.ExpiredSignatureError:
+        return None
+    except jwt.InvalidTokenError:
+        return None
+
+def get_user_from_request(request_handler) -> Optional[int]:
+    """从HTTP请求中获取用户ID"""
+    # 尝试从Authorization header获取token
+    auth_header = request_handler.headers.get('Authorization', '')
+    if auth_header.startswith('Bearer '):
+        token = auth_header[7:]  # 移除 'Bearer ' 前缀
+        return verify_session_token(token)
+    
+    # 尝试从Cookie获取token
+    cookie_header = request_handler.headers.get('Cookie', '')
+    if cookie_header:
+        cookies = {}
+        for cookie in cookie_header.split(';'):
+            if '=' in cookie:
+                key, value = cookie.strip().split('=', 1)
+                cookies[key] = value
+        
+        session_token = cookies.get('session_token')
+        if session_token:
+            return verify_session_token(session_token)
+    
+    return None
 
 if __name__ == "__main__":
     # 测试认证工具函数

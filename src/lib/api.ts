@@ -1,17 +1,43 @@
 import axios from 'axios'
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'
+const API_BASE_URL = process.env.NODE_ENV === 'production' 
+  ? '/api'  // Vercel部署时使用相对路径
+  : 'http://localhost:5000/api'  // 开发环境Flask服务器
 
 // 创建axios实例
 const api = axios.create({
   baseURL: API_BASE_URL,
   timeout: 30000,
-  withCredentials: true, // 支持session
+  withCredentials: true, // 支持cookies
 })
+
+// Token管理
+const getToken = () => {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('session_token')
+  }
+  return null
+}
+
+const setToken = (token: string) => {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('session_token', token)
+  }
+}
+
+const removeToken = () => {
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem('session_token')
+  }
+}
 
 // 请求拦截器
 api.interceptors.request.use(
   (config) => {
+    const token = getToken()
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`
+    }
     return config
   },
   (error) => {
@@ -35,14 +61,24 @@ api.interceptors.response.use(
 
 // 认证相关API
 export const authAPI = {
-  login: (username: string, password: string) =>
-    api.post('/api/auth/login', { username, password }),
+  login: async (username: string, password: string) => {
+    const response = await api.post('/api/auth/login', { username, password })
+    if (response.data.success && response.data.token) {
+      setToken(response.data.token)
+    }
+    return response
+  },
   
-  logout: () =>
-    api.post('/api/auth/logout'),
+  logout: () => {
+    removeToken()
+    return Promise.resolve({ data: { success: true, message: '登出成功' } })
+  },
   
   getStatus: () =>
     api.get('/api/auth/status'),
+  
+  register: (username: string, password: string, email?: string, nickname?: string) =>
+    api.post('/api/auth/register', { username, password, email, nickname }),
 }
 
 // 笔记相关API
@@ -88,3 +124,5 @@ export const healthAPI = {
 }
 
 export default api
+// 导出token管理函数
+export { getToken, setToken, removeToken }

@@ -1,0 +1,70 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/next"
+    },
+    {
+      "src": "api/*.py",
+      "use": "@vercel/python"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/xiaohongshu/note",
+      "dest": "/api/xiaohongshu_note.py"
+    },
+    {
+      "src": "/api/xiaohongshu/notes",
+      "dest": "/api/xiaohongshu_notes.py"
+    },
+    {
+      "src": "/api/xiaohongshu/notes/(.*)",
+      "dest": "/api/xiaohongshu_notes.py"
+    },
+    {
+      "src": "/api/xiaohongshu/recreate",
+      "dest": "/api/xiaohongshu_recreate.py"
+    },
+    {
+      "src": "/api/xiaohongshu/recreate/history",
+      "dest": "/api/recreate_history.py"
+    },
+    {
+      "src": "/api/xiaohongshu/recreate/history/(.*)",
+      "dest": "/api/recreate_history.py"
+    },
+    {
+      "src": "/api/auth/login",
+      "dest": "/api/auth_login.py"
+    },
+    {
+      "src": "/api/auth/register",
+      "dest": "/api/auth_register.py"
+    },
+    {
+      "src": "/api/auth/status",
+      "dest": "/api/auth_status.py"
+    },
+    {
+      "src": "/api/deepseek/config",
+      "dest": "/api/deepseek_config.py"
+    },
+    {
+      "src": "/api/deepseek/test",
+      "dest": "/api/deepseek_test.py"
+    },
+    {
+      "src": "/api/health",
+      "dest": "/api/health.py"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/$1"
+    }
+  ],
+  "env": {
+    "JWT_SECRET": "@jwt_secret"
+  }
+}
