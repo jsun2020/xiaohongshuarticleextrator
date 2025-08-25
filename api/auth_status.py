@@ -12,7 +12,7 @@ def handler(request):
         return create_response({'success': False, 'error': '只支持GET请求'}, 405)
     
     try:
-        user_id = require_auth(req_data['cookies'])
+        user_id = require_auth(req_data)
         
         if not user_id:
             return create_response({

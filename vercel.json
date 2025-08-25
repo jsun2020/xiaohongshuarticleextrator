@@ -16,24 +16,24 @@
       "dest": "/api/xiaohongshu_note.py"
     },
     {
+      "src": "/api/xiaohongshu/notes/([^/]+)",
+      "dest": "/api/xiaohongshu_notes_delete.py"
+    },
+    {
       "src": "/api/xiaohongshu/notes",
       "dest": "/api/xiaohongshu_notes.py"
     },
     {
-      "src": "/api/xiaohongshu/notes/(.*)",
-      "dest": "/api/xiaohongshu_notes.py"
-    },
-    {
-      "src": "/api/xiaohongshu/recreate",
-      "dest": "/api/xiaohongshu_recreate.py"
+      "src": "/api/xiaohongshu/recreate/history/([^/]+)",
+      "dest": "/api/recreate_history_delete.py"
     },
     {
       "src": "/api/xiaohongshu/recreate/history",
       "dest": "/api/recreate_history.py"
     },
     {
-      "src": "/api/xiaohongshu/recreate/history/(.*)",
-      "dest": "/api/recreate_history.py"
+      "src": "/api/xiaohongshu/recreate",
+      "dest": "/api/xiaohongshu_recreate.py"
     },
     {
       "src": "/api/auth/login",
@@ -42,6 +42,10 @@
     {
       "src": "/api/auth/register",
       "dest": "/api/auth_register.py"
+    },
+    {
+      "src": "/api/auth/logout",
+      "dest": "/api/auth_logout.py"
     },
     {
       "src": "/api/auth/status",

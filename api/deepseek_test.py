@@ -16,7 +16,7 @@ def handler(request):
         return create_response({'success': False, 'error': '只支持POST请求'}, 405)
     
     # 检查用户认证
-    user_id = require_auth(req_data['cookies'])
+    user_id = require_auth(req_data)
     if not user_id:
         return create_response({'success': False, 'error': '请先登录'}, 401)
     

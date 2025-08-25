@@ -1,32 +1,37 @@
-# Vercel 部署指南
+# Vercel Deployment Guide / Vercel 部署指南
 
+This document explains how to deploy the Xiaohongshu Article Extractor application to Vercel.
 本文档说明如何将小红书笔记采集应用部署到 Vercel。
 
-## 项目结构调整
+## Project Structure / 项目结构
 
+The project has been refactored to a Vercel-compatible Serverless architecture:
 项目已重构为 Vercel 兼容的 Serverless 架构：
 
 ```
 /
-├── api/                             # Serverless API 函数
-│   ├── xiaohongshu_note.py          # 对应 /api/xiaohongshu/note
-│   ├── xiaohongshu_notes.py         # 对应 /api/xiaohongshu/notes
-│   ├── xiaohongshu_recreate.py      # 对应 /api/xiaohongshu/recreate
-│   ├── recreate_history.py          # 对应 /api/xiaohongshu/recreate/history
-│   ├── auth_login.py                # 对应 /api/auth/login
-│   ├── auth_register.py             # 对应 /api/auth/register
-│   ├── auth_status.py               # 对应 /api/auth/status
-│   ├── deepseek_config.py           # 对应 /api/deepseek/config
-│   ├── deepseek_test.py             # 对应 /api/deepseek/test
-│   ├── health.py                    # 对应 /api/health
-│   └── requirements.txt             # Python 依赖
-├── src/                             # Next.js 前端应用
-├── vercel.json                      # Vercel 配置文件
-├── database.py                      # 数据库管理（已适配 Serverless）
-├── config.py                        # 配置管理
-├── xhs_v2.py                        # 小红书爬虫
-├── deepseek_api.py                  # DeepSeek API
-├── auth_utils.py                    # 认证工具（已适配 JWT）
+├── api/                             # Serverless API functions / API 函数
+│   ├── auth_login.py                # /api/auth/login - User login
+│   ├── auth_register.py             # /api/auth/register - User registration
+│   ├── auth_logout.py               # /api/auth/logout - User logout
+│   ├── auth_status.py               # /api/auth/status - Login status
+│   ├── xiaohongshu_note.py          # /api/xiaohongshu/note - Get note
+│   ├── xiaohongshu_notes.py         # /api/xiaohongshu/notes - Get notes list
+│   ├── xiaohongshu_notes_delete.py  # Delete notes
+│   ├── xiaohongshu_recreate.py      # /api/xiaohongshu/recreate - AI recreation
+│   ├── recreate_history.py          # /api/xiaohongshu/recreate/history
+│   ├── recreate_history_delete.py   # Delete recreation history
+│   ├── deepseek_config.py           # /api/deepseek/config - DeepSeek settings
+│   ├── deepseek_test.py             # /api/deepseek/test - Test connection
+│   ├── health.py                    # /api/health - Health check
+│   ├── _utils.py                    # Shared utilities / 共享工具
+│   ├── _database.py                 # Database manager / 数据库管理
+│   ├── _xhs_crawler.py              # Xiaohongshu crawler / 爬虫
+│   ├── _deepseek_api.py             # DeepSeek API integration
+│   └── requirements.txt             # Python dependencies / Python 依赖
+├── src/                             # Next.js frontend / Next.js 前端
+├── vercel.json                      # Vercel configuration / Vercel 配置
+├── package.json                     # Node.js dependencies / Node.js 依赖
 └── ...
 ```
 

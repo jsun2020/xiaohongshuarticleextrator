@@ -18,7 +18,7 @@ def handler(request):
     req_data = parse_request(request)
     
     # 检查用户认证
-    user_id = require_auth(req_data['cookies'])
+    user_id = require_auth(req_data)
     if not user_id:
         return create_response({'success': False, 'error': '请先登录'}, 401)
     

@@ -3,8 +3,14 @@ Vercel Serverless 工具函数
 """
 import json
 import os
+import jwt
 from urllib.parse import parse_qs
 from http.cookies import SimpleCookie
+from datetime import datetime, timedelta
+from typing import Optional
+
+# JWT认证配置
+JWT_SECRET = os.environ.get('JWT_SECRET', 'xiaohongshu_app_secret_key_2024')
 
 def parse_request(request):
     """解析Vercel请求对象"""
@@ -77,20 +83,54 @@ def create_response(data, status_code=200, cookies=None):
         'body': json.dumps(data, ensure_ascii=False)
     }
 
-def require_auth(cookies):
-    """检查用户认证状态"""
-    session_id = cookies.get('session_id')
-    user_id = cookies.get('user_id')
-    
-    if not session_id or not user_id:
-        return None
-    
-    # 这里应该验证session的有效性
-    # 简化版本，实际应该查询数据库验证session
+def create_session_token(user_id: int) -> str:
+    """创建JWT会话令牌"""
+    payload = {
+        'user_id': user_id,
+        'exp': datetime.utcnow() + timedelta(days=1),  # 24小时过期
+        'iat': datetime.utcnow()
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm='HS256')
+
+def verify_session_token(token: str) -> Optional[int]:
+    """验证JWT会话令牌并返回用户ID"""
     try:
-        return int(user_id)
-    except:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=['HS256'])
+        return payload.get('user_id')
+    except jwt.ExpiredSignatureError:
         return None
+    except jwt.InvalidTokenError:
+        return None
+
+def require_auth(req_data):
+    """检查用户认证状态 - 支持JWT tokens"""
+    # 1. 尝试从Authorization header获取token
+    auth_header = req_data.get('headers', {}).get('authorization') or req_data.get('headers', {}).get('Authorization')
+    if auth_header and auth_header.startswith('Bearer '):
+        token = auth_header[7:]  # 移除 'Bearer ' 前缀
+        user_id = verify_session_token(token)
+        if user_id:
+            return user_id
+    
+    # 2. 尝试从Cookie获取token
+    cookies = req_data.get('cookies', {})
+    session_token = cookies.get('session_token')
+    if session_token:
+        user_id = verify_session_token(session_token)
+        if user_id:
+            return user_id
+    
+    # 3. 兼容旧的cookie格式
+    session_id = cookies.get('session_id')
+    user_id_cookie = cookies.get('user_id')
+    
+    if session_id and user_id_cookie:
+        try:
+            return int(user_id_cookie)
+        except:
+            pass
+    
+    return None
 
 def get_database_url():
     """获取数据库连接URL"""

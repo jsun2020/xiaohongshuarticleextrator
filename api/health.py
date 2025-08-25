@@ -16,7 +16,7 @@ def handler(request):
         db.init_database()
         
         # 检查用户登录状态
-        user_id = require_auth(req_data['cookies'])
+        user_id = require_auth(req_data)
         logged_in = user_id is not None
         
         # 获取笔记总数
