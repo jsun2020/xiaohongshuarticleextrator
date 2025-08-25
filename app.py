@@ -1,9 +1,11 @@
 from flask import Flask, request, jsonify, session
 from flask_cors import CORS
+from functools import wraps
 from xhs_v2 import get_xiaohongshu_note
 from database import db
 from deepseek_api import deepseek_api
 from config import config
+from auth_utils import hash_password, verify_password, validate_username, validate_password, validate_email
 import json
 import os
 import hashlib
@@ -13,23 +15,23 @@ app = Flask(__name__)
 CORS(app, supports_credentials=True)  # 允许跨域请求并支持凭据
 app.secret_key = 'xiaohongshu_app_secret_key_2024'  # 用于session加密
 
-# 简单的用户认证（实际项目中应使用更安全的方式）
-USERS = {
-    'admin': hashlib.md5('admin123'.encode()).hexdigest(),
-    'user': hashlib.md5('user123'.encode()).hexdigest()
-}
+# 用户认证系统已迁移到数据库
 
 def require_auth(f):
     """认证装饰器"""
+    @wraps(f)
     def decorated_function(*args, **kwargs):
-        if not session.get('logged_in'):
+        if not session.get('logged_in') or not session.get('user_id'):
             return jsonify({
                 'success': False,
                 'error': '请先登录'
             }), 401
         return f(*args, **kwargs)
-    decorated_function.__name__ = f.__name__
     return decorated_function
+
+def get_current_user_id():
+    """获取当前登录用户ID"""
+    return session.get('user_id')
 
 @app.route('/api/xiaohongshu/note', methods=['POST'])
 @require_auth
@@ -56,7 +58,8 @@ def get_note():
             note_data = result['data']
             note_data['original_url'] = url  # 添加原始URL
             
-            save_success = db.save_note(note_data)
+            user_id = get_current_user_id()
+            save_success = db.save_note(note_data, user_id)
             result['saved_to_db'] = save_success
             
             return jsonify(result), 200
@@ -79,8 +82,9 @@ def get_notes_list():
         offset = int(request.args.get('offset', 0))
         
         # 从数据库获取笔记列表
-        notes = db.get_notes_list(limit=limit, offset=offset)
-        total_count = db.get_notes_count()
+        user_id = get_current_user_id()
+        notes = db.get_notes_list(user_id, limit=limit, offset=offset)
+        total_count = db.get_notes_count(user_id)
         
         return jsonify({
             'success': True,
@@ -104,7 +108,8 @@ def get_notes_list():
 def delete_note(note_id):
     """删除笔记的API接口"""
     try:
-        success = db.delete_note(note_id)
+        user_id = get_current_user_id()
+        success = db.delete_note(user_id, note_id)
         
         if success:
             return jsonify({
@@ -123,35 +128,93 @@ def delete_note(note_id):
             'error': f'删除笔记失败: {str(e)}'
         }), 500
 
+@app.route('/api/auth/register', methods=['POST'])
+def register():
+    """用户注册接口"""
+    try:
+        data = request.get_json()
+        username = data.get('username', '').strip()
+        password = data.get('password', '')
+        email = data.get('email', '').strip()
+        nickname = data.get('nickname', '').strip()
+        
+        # 验证输入
+        valid_username, username_msg = validate_username(username)
+        if not valid_username:
+            return jsonify({'success': False, 'error': username_msg}), 400
+        
+        valid_password, password_msg = validate_password(password)
+        if not valid_password:
+            return jsonify({'success': False, 'error': password_msg}), 400
+        
+        if email:
+            valid_email, email_msg = validate_email(email)
+            if not valid_email:
+                return jsonify({'success': False, 'error': email_msg}), 400
+        
+        # 检查用户名是否已存在
+        existing_user = db.get_user_by_username(username)
+        if existing_user:
+            return jsonify({'success': False, 'error': '用户名已存在'}), 400
+        
+        # 创建用户
+        password_hash = hash_password(password)
+        user_id = db.create_user(username, password_hash, email, nickname)
+        
+        if user_id:
+            return jsonify({
+                'success': True,
+                'message': '注册成功',
+                'user': {
+                    'id': user_id,
+                    'username': username,
+                    'nickname': nickname or username
+                }
+            }), 201
+        else:
+            return jsonify({'success': False, 'error': '注册失败，请重试'}), 500
+            
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'注册失败: {str(e)}'
+        }), 500
+
 @app.route('/api/auth/login', methods=['POST'])
 def login():
     """用户登录接口"""
     try:
         data = request.get_json()
-        username = data.get('username')
-        password = data.get('password')
+        username = data.get('username', '').strip()
+        password = data.get('password', '')
         
         if not username or not password:
-            return jsonify({
-                'success': False,
-                'error': '用户名和密码不能为空'
-            }), 400
+            return jsonify({'success': False, 'error': '用户名和密码不能为空'}), 400
         
-        # 验证用户凭据
-        password_hash = hashlib.md5(password.encode()).hexdigest()
-        if username in USERS and USERS[username] == password_hash:
-            session['user'] = username
-            session['logged_in'] = True
-            return jsonify({
-                'success': True,
-                'message': '登录成功',
-                'user': username
-            }), 200
-        else:
-            return jsonify({
-                'success': False,
-                'error': '用户名或密码错误'
-            }), 401
+        # 获取用户信息
+        user = db.get_user_by_username(username)
+        if not user:
+            return jsonify({'success': False, 'error': '用户名或密码错误'}), 401
+        
+        # 验证密码
+        if not verify_password(password, user['password_hash']):
+            return jsonify({'success': False, 'error': '用户名或密码错误'}), 401
+        
+        # 设置会话
+        session['logged_in'] = True
+        session['user_id'] = user['id']
+        session['username'] = user['username']
+        
+        return jsonify({
+            'success': True,
+            'message': '登录成功',
+            'user': {
+                'id': user['id'],
+                'username': user['username'],
+                'nickname': user['nickname'],
+                'email': user['email']
+            }
+        }), 200
             
     except Exception as e:
         return jsonify({
@@ -171,17 +234,25 @@ def logout():
 @app.route('/api/auth/status', methods=['GET'])
 def auth_status():
     """检查登录状态"""
-    if session.get('logged_in'):
-        return jsonify({
-            'success': True,
-            'logged_in': True,
-            'user': session.get('user')
-        }), 200
-    else:
-        return jsonify({
-            'success': True,
-            'logged_in': False
-        }), 200
+    if session.get('logged_in') and session.get('user_id'):
+        user_id = session.get('user_id')
+        user = db.get_user_by_id(user_id)
+        if user:
+            return jsonify({
+                'success': True,
+                'logged_in': True,
+                'user': {
+                    'id': user['id'],
+                    'username': user['username'],
+                    'nickname': user['nickname'],
+                    'email': user['email']
+                }
+            }), 200
+    
+    return jsonify({
+        'success': True,
+        'logged_in': False
+    }), 200
 
 @app.route('/api/xiaohongshu/recreate', methods=['POST'])
 @require_auth
@@ -213,7 +284,8 @@ def recreate_note():
                 'new_content': result['data']['new_content']
             }
             
-            history_saved = db.save_recreate_history(history_data)
+            user_id = get_current_user_id()
+            history_saved = db.save_recreate_history(user_id, history_data)
             result['history_saved'] = history_saved
             
             return jsonify(result), 200
@@ -234,8 +306,9 @@ def get_recreate_history():
         limit = int(request.args.get('limit', 20))
         offset = int(request.args.get('offset', 0))
         
-        history_list = db.get_recreate_history(limit=limit, offset=offset)
-        total_count = db.get_recreate_history_count()
+        user_id = get_current_user_id()
+        history_list = db.get_recreate_history(user_id, limit=limit, offset=offset)
+        total_count = db.get_recreate_history_count(user_id)
         
         return jsonify({
             'success': True,
@@ -259,7 +332,8 @@ def get_recreate_history():
 def delete_recreate_history(history_id):
     """删除二创历史记录"""
     try:
-        success = db.delete_recreate_history(history_id)
+        user_id = get_current_user_id()
+        success = db.delete_recreate_history(user_id, history_id)
         
         if success:
             return jsonify({
@@ -283,8 +357,19 @@ def delete_recreate_history(history_id):
 def deepseek_config():
     """DeepSeek配置管理"""
     if request.method == 'GET':
-        # 获取配置（安全显示API Key）
-        deepseek_config = config.get_deepseek_config()
+        # 获取用户的DeepSeek配置
+        user_id = get_current_user_id()
+        user_config = db.get_user_config(user_id)
+        
+        # 构建DeepSeek配置
+        deepseek_config = {
+            'api_key': user_config.get('deepseek_api_key', ''),
+            'base_url': user_config.get('deepseek_base_url', 'https://api.deepseek.com'),
+            'model': user_config.get('deepseek_model', 'deepseek-chat'),
+            'temperature': float(user_config.get('deepseek_temperature', '0.7')),
+            'max_tokens': int(user_config.get('deepseek_max_tokens', '1000'))
+        }
+        
         safe_config = deepseek_config.copy()
         
         # 安全显示API Key - 只显示掩码，不影响实际存储
@@ -305,27 +390,30 @@ def deepseek_config():
         }), 200
     
     elif request.method == 'POST':
-        # 更新配置
+        # 更新用户配置
         try:
             data = request.get_json()
+            user_id = get_current_user_id()
             
             # 处理API Key更新
             if 'api_key' in data:
                 new_api_key = data['api_key'].strip()
                 # 如果不是掩码格式，才更新（避免保存掩码）
                 if new_api_key and '***' not in new_api_key:
-                    config.set_deepseek_api_key(new_api_key)
+                    db.set_user_config(user_id, 'deepseek_api_key', new_api_key)
                 elif not new_api_key:
                     # 如果是空值，清空API Key
-                    config.set_deepseek_api_key('')
+                    db.set_user_config(user_id, 'deepseek_api_key', '')
                 # 如果是掩码格式，保持原有API Key不变
             
+            if 'base_url' in data:
+                db.set_user_config(user_id, 'deepseek_base_url', data['base_url'])
             if 'model' in data:
-                config.set('deepseek.model', data['model'])
+                db.set_user_config(user_id, 'deepseek_model', data['model'])
             if 'temperature' in data:
-                config.set('deepseek.temperature', float(data['temperature']))
+                db.set_user_config(user_id, 'deepseek_temperature', str(data['temperature']))
             if 'max_tokens' in data:
-                config.set('deepseek.max_tokens', int(data['max_tokens']))
+                db.set_user_config(user_id, 'deepseek_max_tokens', str(data['max_tokens']))
             
             return jsonify({
                 'success': True,

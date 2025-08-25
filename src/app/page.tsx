@@ -6,9 +6,16 @@ import { authAPI } from '@/lib/api'
 import { Loader2 } from 'lucide-react'
 import MainApp from '@/components/MainApp'
 
+interface User {
+  id: number
+  username: string
+  nickname: string
+  email: string
+}
+
 export default function HomePage() {
   const [loading, setLoading] = useState(true)
-  const [user, setUser] = useState<string | null>(null)
+  const [user, setUser] = useState<User | null>(null)
   const router = useRouter()
 
   useEffect(() => {

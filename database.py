@@ -16,11 +16,41 @@ class XiaohongshuDatabase:
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
             
-            # 创建笔记主表
+            # 创建用户表
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS users (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    username TEXT UNIQUE NOT NULL,
+                    email TEXT UNIQUE,
+                    password_hash TEXT NOT NULL,
+                    nickname TEXT,
+                    avatar TEXT,
+                    is_active BOOLEAN DEFAULT 1,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            
+            # 创建用户配置表
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS user_configs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    config_key TEXT NOT NULL,
+                    config_value TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users (id),
+                    UNIQUE(user_id, config_key)
+                )
+            ''')
+            
+            # 创建笔记主表（添加用户关联）
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS notes (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    note_id TEXT UNIQUE NOT NULL,
+                    user_id INTEGER NOT NULL,
+                    note_id TEXT NOT NULL,
                     title TEXT NOT NULL,
                     content TEXT,
                     type TEXT,
@@ -28,7 +58,9 @@ class XiaohongshuDatabase:
                     location TEXT,
                     original_url TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users (id),
+                    UNIQUE(user_id, note_id)
                 )
             ''')
             
@@ -117,16 +149,18 @@ class XiaohongshuDatabase:
                 )
             ''')
             
-            # 创建二创历史表
+            # 创建二创历史表（添加用户关联）
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS recreate_history (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
                     original_note_id TEXT,
                     original_title TEXT,
                     original_content TEXT,
                     new_title TEXT,
                     new_content TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users (id),
                     FOREIGN KEY (original_note_id) REFERENCES notes (note_id)
                 )
             ''')
@@ -134,16 +168,159 @@ class XiaohongshuDatabase:
             conn.commit()
             print("✅ 数据库表初始化完成")
     
-    def save_note(self, note_data: Dict) -> bool:
+    def create_user(self, username: str, password_hash: str, email: str = None, nickname: str = None) -> Optional[int]:
+        """创建新用户"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                
+                cursor.execute('''
+                    INSERT INTO users (username, password_hash, email, nickname)
+                    VALUES (?, ?, ?, ?)
+                ''', (username, password_hash, email, nickname or username))
+                
+                user_id = cursor.lastrowid
+                conn.commit()
+                print(f"✅ 用户 {username} 创建成功，ID: {user_id}")
+                return user_id
+                
+        except sqlite3.IntegrityError as e:
+            if 'username' in str(e):
+                print(f"❌ 用户名 {username} 已存在")
+            elif 'email' in str(e):
+                print(f"❌ 邮箱 {email} 已存在")
+            else:
+                print(f"❌ 创建用户失败: {str(e)}")
+            return None
+        except Exception as e:
+            print(f"❌ 创建用户失败: {str(e)}")
+            return None
+    
+    def get_user_by_username(self, username: str) -> Optional[Dict]:
+        """根据用户名获取用户信息"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+                
+                cursor.execute('''
+                    SELECT id, username, email, password_hash, nickname, avatar, is_active, created_at
+                    FROM users WHERE username = ? AND is_active = 1
+                ''', (username,))
+                
+                user = cursor.fetchone()
+                return dict(user) if user else None
+                
+        except Exception as e:
+            print(f"❌ 获取用户信息失败: {str(e)}")
+            return None
+    
+    def get_user_by_id(self, user_id: int) -> Optional[Dict]:
+        """根据用户ID获取用户信息"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+                
+                cursor.execute('''
+                    SELECT id, username, email, nickname, avatar, is_active, created_at
+                    FROM users WHERE id = ? AND is_active = 1
+                ''', (user_id,))
+                
+                user = cursor.fetchone()
+                return dict(user) if user else None
+                
+        except Exception as e:
+            print(f"❌ 获取用户信息失败: {str(e)}")
+            return None
+    
+    def update_user(self, user_id: int, **kwargs) -> bool:
+        """更新用户信息"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                
+                # 构建更新字段
+                update_fields = []
+                values = []
+                
+                for field in ['email', 'nickname', 'avatar', 'password_hash']:
+                    if field in kwargs:
+                        update_fields.append(f"{field} = ?")
+                        values.append(kwargs[field])
+                
+                if not update_fields:
+                    return True
+                
+                update_fields.append("updated_at = CURRENT_TIMESTAMP")
+                values.append(user_id)
+                
+                query = f"UPDATE users SET {', '.join(update_fields)} WHERE id = ?"
+                cursor.execute(query, values)
+                
+                conn.commit()
+                print(f"✅ 用户 {user_id} 信息更新成功")
+                return True
+                
+        except Exception as e:
+            print(f"❌ 更新用户信息失败: {str(e)}")
+            return False
+    
+    def get_user_config(self, user_id: int, config_key: str = None) -> Dict:
+        """获取用户配置"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+                
+                if config_key:
+                    cursor.execute('''
+                        SELECT config_value FROM user_configs 
+                        WHERE user_id = ? AND config_key = ?
+                    ''', (user_id, config_key))
+                    result = cursor.fetchone()
+                    return result['config_value'] if result else None
+                else:
+                    cursor.execute('''
+                        SELECT config_key, config_value FROM user_configs 
+                        WHERE user_id = ?
+                    ''', (user_id,))
+                    results = cursor.fetchall()
+                    return {row['config_key']: row['config_value'] for row in results}
+                
+        except Exception as e:
+            print(f"❌ 获取用户配置失败: {str(e)}")
+            return {} if not config_key else None
+    
+    def set_user_config(self, user_id: int, config_key: str, config_value: str) -> bool:
+        """设置用户配置"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                
+                cursor.execute('''
+                    INSERT OR REPLACE INTO user_configs 
+                    (user_id, config_key, config_value, updated_at)
+                    VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+                ''', (user_id, config_key, config_value))
+                
+                conn.commit()
+                return True
+                
+        except Exception as e:
+            print(f"❌ 设置用户配置失败: {str(e)}")
+            return False
+    
+    def save_note(self, note_data: Dict, user_id: int) -> bool:
         """保存笔记数据到数据库"""
         try:
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
                 
-                # 检查笔记是否已存在
-                cursor.execute("SELECT id FROM notes WHERE note_id = ?", (note_data['note_id'],))
+                # 检查笔记是否已存在（同一用户下）
+                cursor.execute("SELECT id FROM notes WHERE user_id = ? AND note_id = ?", (user_id, note_data['note_id']))
                 if cursor.fetchone():
-                    print(f"笔记 {note_data['note_id']} 已存在，跳过保存")
+                    print(f"用户 {user_id} 的笔记 {note_data['note_id']} 已存在，跳过保存")
                     return False
                 
                 # 保存作者信息
@@ -166,9 +343,10 @@ class XiaohongshuDatabase:
                 
                 # 保存笔记主信息
                 cursor.execute('''
-                    INSERT INTO notes (note_id, title, content, type, publish_time, location, original_url)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO notes (user_id, note_id, title, content, type, publish_time, location, original_url)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 ''', (
+                    user_id,
                     note_data.get('note_id', ''),
                     note_data.get('title', ''),
                     note_data.get('content', ''),
@@ -255,8 +433,8 @@ class XiaohongshuDatabase:
             traceback.print_exc()
             return False
     
-    def get_notes_list(self, limit: int = 50, offset: int = 0) -> List[Dict]:
-        """获取笔记列表"""
+    def get_notes_list(self, user_id: int, limit: int = 50, offset: int = 0) -> List[Dict]:
+        """获取用户的笔记列表"""
         try:
             with sqlite3.connect(self.db_path) as conn:
                 conn.row_factory = sqlite3.Row
@@ -282,11 +460,12 @@ class XiaohongshuDatabase:
                     LEFT JOIN note_authors na ON n.note_id = na.note_id
                     LEFT JOIN authors a ON na.author_id = a.id
                     LEFT JOIN note_stats ns ON n.note_id = ns.note_id
+                    WHERE n.user_id = ?
                     ORDER BY n.created_at DESC
                     LIMIT ? OFFSET ?
                 '''
                 
-                cursor.execute(query, (limit, offset))
+                cursor.execute(query, (user_id, limit, offset))
                 notes = cursor.fetchall()
                 
                 result = []
@@ -350,22 +529,31 @@ class XiaohongshuDatabase:
             print(f"❌ 获取笔记列表失败: {str(e)}")
             return []
     
-    def get_notes_count(self) -> int:
+    def get_notes_count(self, user_id: int = None) -> int:
         """获取笔记总数"""
         try:
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
-                cursor.execute("SELECT COUNT(*) FROM notes")
+                if user_id:
+                    cursor.execute("SELECT COUNT(*) FROM notes WHERE user_id = ?", (user_id,))
+                else:
+                    cursor.execute("SELECT COUNT(*) FROM notes")
                 return cursor.fetchone()[0]
         except Exception as e:
             print(f"❌ 获取笔记总数失败: {str(e)}")
             return 0
     
-    def delete_note(self, note_id: str) -> bool:
-        """删除笔记"""
+    def delete_note(self, user_id: int, note_id: str) -> bool:
+        """删除用户的笔记"""
         try:
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
+                
+                # 验证笔记属于该用户
+                cursor.execute("SELECT id FROM notes WHERE user_id = ? AND note_id = ?", (user_id, note_id))
+                if not cursor.fetchone():
+                    print(f"❌ 笔记 {note_id} 不存在或不属于用户 {user_id}")
+                    return False
                 
                 # 删除相关数据
                 cursor.execute("DELETE FROM note_tags WHERE note_id = ?", (note_id,))
@@ -373,27 +561,28 @@ class XiaohongshuDatabase:
                 cursor.execute("DELETE FROM note_videos WHERE note_id = ?", (note_id,))
                 cursor.execute("DELETE FROM note_stats WHERE note_id = ?", (note_id,))
                 cursor.execute("DELETE FROM note_authors WHERE note_id = ?", (note_id,))
-                cursor.execute("DELETE FROM notes WHERE note_id = ?", (note_id,))
+                cursor.execute("DELETE FROM notes WHERE user_id = ? AND note_id = ?", (user_id, note_id))
                 
                 conn.commit()
-                print(f"✅ 笔记 {note_id} 删除成功")
+                print(f"✅ 用户 {user_id} 的笔记 {note_id} 删除成功")
                 return True
                 
         except Exception as e:
             print(f"❌ 删除笔记失败: {str(e)}")
             return False
     
-    def save_recreate_history(self, history_data: Dict) -> bool:
-        """保存二创历史记录"""
+    def save_recreate_history(self, user_id: int, history_data: Dict) -> bool:
+        """保存用户的二创历史记录"""
         try:
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
                 
                 cursor.execute('''
                     INSERT INTO recreate_history 
-                    (original_note_id, original_title, original_content, new_title, new_content)
-                    VALUES (?, ?, ?, ?, ?)
+                    (user_id, original_note_id, original_title, original_content, new_title, new_content)
+                    VALUES (?, ?, ?, ?, ?, ?)
                 ''', (
+                    user_id,
                     history_data['original_note_id'],
                     history_data['original_title'],
                     history_data['original_content'],
@@ -402,15 +591,15 @@ class XiaohongshuDatabase:
                 ))
                 
                 conn.commit()
-                print(f"✅ 二创历史记录保存成功")
+                print(f"✅ 用户 {user_id} 的二创历史记录保存成功")
                 return True
                 
         except Exception as e:
             print(f"❌ 保存二创历史失败: {str(e)}")
             return False
     
-    def get_recreate_history(self, limit: int = 50, offset: int = 0) -> List[Dict]:
-        """获取二创历史列表"""
+    def get_recreate_history(self, user_id: int, limit: int = 50, offset: int = 0) -> List[Dict]:
+        """获取用户的二创历史列表"""
         try:
             with sqlite3.connect(self.db_path) as conn:
                 conn.row_factory = sqlite3.Row
@@ -428,14 +617,15 @@ class XiaohongshuDatabase:
                         n.title as note_title,
                         a.nickname as author_nickname
                     FROM recreate_history rh
-                    LEFT JOIN notes n ON rh.original_note_id = n.note_id
+                    LEFT JOIN notes n ON rh.original_note_id = n.note_id AND n.user_id = rh.user_id
                     LEFT JOIN note_authors na ON n.note_id = na.note_id
                     LEFT JOIN authors a ON na.author_id = a.id
+                    WHERE rh.user_id = ?
                     ORDER BY rh.created_at DESC
                     LIMIT ? OFFSET ?
                 '''
                 
-                cursor.execute(query, (limit, offset))
+                cursor.execute(query, (user_id, limit, offset))
                 history_records = cursor.fetchall()
                 
                 result = []
@@ -459,26 +649,30 @@ class XiaohongshuDatabase:
             print(f"❌ 获取二创历史失败: {str(e)}")
             return []
     
-    def get_recreate_history_count(self) -> int:
-        """获取二创历史总数"""
+    def get_recreate_history_count(self, user_id: int) -> int:
+        """获取用户的二创历史总数"""
         try:
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
-                cursor.execute("SELECT COUNT(*) FROM recreate_history")
+                cursor.execute("SELECT COUNT(*) FROM recreate_history WHERE user_id = ?", (user_id,))
                 return cursor.fetchone()[0]
         except Exception as e:
             print(f"❌ 获取二创历史总数失败: {str(e)}")
             return 0
     
-    def delete_recreate_history(self, history_id: int) -> bool:
-        """删除二创历史记录"""
+    def delete_recreate_history(self, user_id: int, history_id: int) -> bool:
+        """删除用户的二创历史记录"""
         try:
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
-                cursor.execute("DELETE FROM recreate_history WHERE id = ?", (history_id,))
-                conn.commit()
-                print(f"✅ 二创历史记录 {history_id} 删除成功")
-                return True
+                cursor.execute("DELETE FROM recreate_history WHERE user_id = ? AND id = ?", (user_id, history_id))
+                if cursor.rowcount > 0:
+                    conn.commit()
+                    print(f"✅ 用户 {user_id} 的二创历史记录 {history_id} 删除成功")
+                    return True
+                else:
+                    print(f"❌ 二创历史记录 {history_id} 不存在或不属于用户 {user_id}")
+                    return False
                 
         except Exception as e:
             print(f"❌ 删除二创历史失败: {str(e)}")

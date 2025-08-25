@@ -11,8 +11,15 @@ import NotesManagement from '@/components/NotesManagement'
 import RecreateHistory from '@/components/RecreateHistory'
 import DeepSeekConfig from '@/components/DeepSeekConfig'
 
+interface User {
+  id: number
+  username: string
+  nickname: string
+  email: string
+}
+
 interface MainAppProps {
-  user: string
+  user: User
 }
 
 export default function MainApp({ user }: MainAppProps) {
@@ -56,7 +63,7 @@ export default function MainApp({ user }: MainAppProps) {
               
               <div className="flex items-center space-x-2 text-sm text-gray-600">
                 <User className="h-4 w-4" />
-                <span>{user}</span>
+                <span>{user.nickname || user.username}</span>
               </div>
               
               <Button

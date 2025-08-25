@@ -51,3 +51,7 @@ config.json
 prd.md
 Project Requirements.md
 PROJECT_SUMMARY.md
+deepseek_api.md
+demo_data.py
+final_test.py
+BUGFIX_NOTES.md

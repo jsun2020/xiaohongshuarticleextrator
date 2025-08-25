@@ -15,37 +15,49 @@ class DeepSeekAPI:
         # 不在初始化时缓存配置，每次使用时动态获取
         pass
     
-    def _get_current_config(self):
+    def _get_current_config(self, user_config=None):
         """获取当前配置"""
-        current_config = config.get_deepseek_config()
-        return {
-            'api_key': current_config.get('api_key', ''),
-            'base_url': current_config.get('base_url', 'https://api.deepseek.com'),
-            'model': current_config.get('model', 'deepseek-chat'),
-            'max_tokens': current_config.get('max_tokens', 1000),
-            'temperature': current_config.get('temperature', 0.7)
-        }
+        if user_config:
+            # 使用传入的用户配置
+            return {
+                'api_key': user_config.get('deepseek_api_key', ''),
+                'base_url': user_config.get('deepseek_base_url', 'https://api.deepseek.com'),
+                'model': user_config.get('deepseek_model', 'deepseek-chat'),
+                'max_tokens': int(user_config.get('deepseek_max_tokens', '1000')),
+                'temperature': float(user_config.get('deepseek_temperature', '0.7'))
+            }
+        else:
+            # 使用全局配置（向后兼容）
+            current_config = config.get_deepseek_config()
+            return {
+                'api_key': current_config.get('api_key', ''),
+                'base_url': current_config.get('base_url', 'https://api.deepseek.com'),
+                'model': current_config.get('model', 'deepseek-chat'),
+                'max_tokens': current_config.get('max_tokens', 1000),
+                'temperature': current_config.get('temperature', 0.7)
+            }
     
-    def _validate_config(self) -> bool:
+    def _validate_config(self, user_config=None) -> bool:
         """验证API配置"""
-        current_config = self._get_current_config()
+        current_config = self._get_current_config(user_config)
         api_key = current_config['api_key']
         if not api_key or not api_key.strip():
             return False
         return True
     
-    def recreate_note(self, title: str, content: str) -> Dict[str, Any]:
+    def recreate_note(self, title: str, content: str, user_config=None) -> Dict[str, Any]:
         """
         对笔记进行二创
         
         Args:
             title: 原标题
             content: 原内容
+            user_config: 用户配置（可选）
             
         Returns:
             dict: 包含新标题和内容的字典
         """
-        if not self._validate_config():
+        if not self._validate_config(user_config):
             return {
                 'success': False,
                 'error': 'DeepSeek API配置不完整，请检查API Key设置'
@@ -56,7 +68,7 @@ class DeepSeekAPI:
             prompt = self._build_recreate_prompt(title, content)
             
             # 调用API
-            response = self._call_api(prompt)
+            response = self._call_api(prompt, user_config)
             
             if response['success']:
                 # 解析返回的内容
@@ -104,11 +116,11 @@ class DeepSeekAPI:
         
         return prompt
     
-    def _call_api(self, prompt: str) -> Dict[str, Any]:
+    def _call_api(self, prompt: str, user_config=None) -> Dict[str, Any]:
         """调用DeepSeek API"""
         try:
             # 获取当前配置
-            current_config = self._get_current_config()
+            current_config = self._get_current_config(user_config)
             
             headers = {
                 'Authorization': f'Bearer {current_config["api_key"]}',
