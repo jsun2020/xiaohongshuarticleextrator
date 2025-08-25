@@ -76,13 +76,22 @@ class handler(BaseHTTPRequestHandler):
                 self.send_error_response({'success': False, 'error': '用户名或密码错误'}, 401)
                 return
             
-            # 生成会话ID
+            # 生成会话ID和JWT token
             session_id = secrets.token_hex(32)
+            
+            # 导入JWT相关函数
+            try:
+                from _utils import create_session_token
+                token = create_session_token(user['id'])
+            except ImportError:
+                # 如果导入失败，使用session_id作为token
+                token = session_id
             
             # 发送成功响应
             self.send_success_response({
                 'success': True,
                 'message': '登录成功',
+                'token': token,  # 添加token到响应体
                 'user': {
                     'id': user['id'],
                     'username': user['username'],

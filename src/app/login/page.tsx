@@ -49,27 +49,19 @@ export default function LoginPage() {
     setError('')
 
     try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          username: username.trim(),
-          password: password
-        }),
-      })
-
-      const data = await response.json()
-
-      if (data.success) {
+      const response = await authAPI.login(username.trim(), password)
+      
+      if (response.data.success) {
         router.push('/')
       } else {
-        setError(data.error || '登录失败')
+        setError(response.data.error || '登录失败')
       }
     } catch (error: any) {
-      setError('登录失败，请检查网络连接')
+      if (error.response?.data?.error) {
+        setError(error.response.data.error)
+      } else {
+        setError('登录失败，请检查网络连接')
+      }
     } finally {
       setLoading(false)
     }
@@ -114,23 +106,14 @@ export default function LoginPage() {
     }
 
     try {
-      const response = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          username: username.trim(),
-          password: password,
-          email: email.trim() || undefined,
-          nickname: nickname.trim() || undefined
-        }),
-      })
+      const response = await authAPI.register(
+        username.trim(),
+        password,
+        email.trim() || undefined,
+        nickname.trim() || undefined
+      )
 
-      const data = await response.json()
-
-      if (data.success) {
+      if (response.data.success) {
         setSuccess('注册成功！请使用您的账户登录。')
         setIsLogin(true)
         // 清空表单
@@ -139,10 +122,14 @@ export default function LoginPage() {
         setEmail('')
         setNickname('')
       } else {
-        setError(data.error || '注册失败')
+        setError(response.data.error || '注册失败')
       }
-    } catch (error) {
-      setError('网络错误，请重试')
+    } catch (error: any) {
+      if (error.response?.data?.error) {
+        setError(error.response.data.error)
+      } else {
+        setError('网络错误，请重试')
+      }
     } finally {
       setLoading(false)
     }
