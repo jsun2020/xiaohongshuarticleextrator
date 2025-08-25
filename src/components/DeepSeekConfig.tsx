@@ -14,7 +14,12 @@ interface DeepSeekConfigProps {
 }
 
 export default function DeepSeekConfig({ open, onOpenChange }: DeepSeekConfigProps) {
-  const [config, setConfig] = useState({
+  const [config, setConfig] = useState<{
+    api_key?: string
+    model: string
+    temperature: number
+    max_tokens: number
+  }>({
     api_key: '',
     model: 'deepseek-chat',
     temperature: 0.7,
@@ -157,8 +162,8 @@ export default function DeepSeekConfig({ open, onOpenChange }: DeepSeekConfigPro
                   <div className="relative mt-1">
                     <Input
                       type={showApiKey ? 'text' : 'password'}
-                      placeholder={config.api_key.includes('***') ? "已保存 (点击修改)" : "sk-xxxxxxxxxxxxxxxx"}
-                      value={config.api_key}
+                      placeholder={(config.api_key && config.api_key.includes('***')) ? "已保存 (点击修改)" : "sk-xxxxxxxxxxxxxxxx"}
+                      value={config.api_key || ''}
                       onChange={(e) => handleInputChange('api_key', e.target.value)}
                       className="pr-10"
                     />

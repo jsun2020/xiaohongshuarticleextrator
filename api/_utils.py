@@ -33,12 +33,34 @@ def parse_request(request):
     
     # 解析Cookies
     cookies = {}
+    headers = dict(request.headers) if hasattr(request, 'headers') else {}
+    
     if hasattr(request, 'cookies'):
         cookies = dict(request.cookies)
-    elif 'cookie' in request.headers:
-        cookie = SimpleCookie()
-        cookie.load(request.headers['cookie'])
-        cookies = {key: morsel.value for key, morsel in cookie.items()}
+    elif 'cookie' in headers:
+        try:
+            cookie = SimpleCookie()
+            cookie.load(headers['cookie'])
+            cookies = {key: morsel.value for key, morsel in cookie.items()}
+        except:
+            # 简单解析cookie字符串
+            cookie_str = headers['cookie']
+            for item in cookie_str.split(';'):
+                if '=' in item:
+                    key, value = item.strip().split('=', 1)
+                    cookies[key] = value
+    elif 'Cookie' in headers:
+        try:
+            cookie = SimpleCookie()
+            cookie.load(headers['Cookie'])
+            cookies = {key: morsel.value for key, morsel in cookie.items()}
+        except:
+            # 简单解析cookie字符串
+            cookie_str = headers['Cookie']
+            for item in cookie_str.split(';'):
+                if '=' in item:
+                    key, value = item.strip().split('=', 1)
+                    cookies[key] = value
     
     return {
         'method': method,
@@ -105,7 +127,8 @@ def verify_session_token(token: str) -> Optional[int]:
 def require_auth(req_data):
     """检查用户认证状态 - 支持JWT tokens"""
     # 1. 尝试从Authorization header获取token
-    auth_header = req_data.get('headers', {}).get('authorization') or req_data.get('headers', {}).get('Authorization')
+    headers = req_data.get('headers', {})
+    auth_header = headers.get('authorization') or headers.get('Authorization')
     if auth_header and auth_header.startswith('Bearer '):
         token = auth_header[7:]  # 移除 'Bearer ' 前缀
         user_id = verify_session_token(token)
@@ -126,7 +149,8 @@ def require_auth(req_data):
     
     if session_id and user_id_cookie:
         try:
-            return int(user_id_cookie)
+            user_id = int(user_id_cookie)
+            return user_id
         except:
             pass
     

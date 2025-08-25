@@ -1,6 +1,10 @@
 """
 获取小红书笔记API - Vercel Serverless函数
 """
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from _utils import parse_request, create_response, require_auth
 from _database import db
 from _xhs_crawler import get_xiaohongshu_note
@@ -48,8 +52,7 @@ def handler(request):
                     'success': True,
                     'message': '笔记获取成功，但保存失败',
                     'data': note_data,
-                    'saved_to_db': False,
-
+                    'saved_to_db': False
                 }, 200)
         else:
             return create_response({

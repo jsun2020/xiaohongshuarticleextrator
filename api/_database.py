@@ -33,15 +33,26 @@ class DatabaseManager:
     def get_connection(self):
         """获取数据库连接"""
         if self.use_postgres:
-            import psycopg2
-            return psycopg2.connect(**self.pg_config)
+            try:
+                import psycopg2
+                return psycopg2.connect(**self.pg_config)
+            except ImportError:
+                import psycopg2
+                return psycopg2.connect(**self.pg_config)
+            except Exception as e:
+                print(f"PostgreSQL连接失败: {e}")
+                raise
         else:
             return sqlite3.connect(self.db_path)
     
     def init_database(self):
         """初始化数据库表"""
-        conn = self.get_connection()
-        cursor = conn.cursor()
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+        except Exception as e:
+            print(f"数据库连接失败: {e}")
+            return False
         
         try:
             if self.use_postgres:
@@ -225,9 +236,19 @@ class DatabaseManager:
         cursor = conn.cursor()
         
         try:
+            # 处理JSON数据
             author_json = json.dumps(note_data.get('author', {}), ensure_ascii=False)
             stats_json = json.dumps(note_data.get('stats', {}), ensure_ascii=False)
-            images_json = json.dumps(note_data.get('images', []), ensure_ascii=False)
+            
+            # 处理图片和视频数据
+            images_data = note_data.get('images', [])
+            videos_data = note_data.get('videos', [])
+            # 合并图片和视频到images_data字段
+            all_media = {
+                'images': images_data,
+                'videos': videos_data
+            }
+            images_json = json.dumps(all_media, ensure_ascii=False)
             
             if self.use_postgres:
                 cursor.execute('''

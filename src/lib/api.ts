@@ -2,7 +2,7 @@ import axios from 'axios'
 
 const API_BASE_URL = process.env.NODE_ENV === 'production' 
   ? '/api'  // Vercel部署时使用相对路径
-  : 'http://localhost:5000/api'  // 开发环境Flask服务器
+  : '/api'  // 开发环境通过Next.js代理
 
 // 创建axios实例
 const api = axios.create({
@@ -62,7 +62,7 @@ api.interceptors.response.use(
 // 认证相关API
 export const authAPI = {
   login: async (username: string, password: string) => {
-    const response = await api.post('/api/auth/login', { username, password })
+    const response = await api.post('/auth/login', { username, password })
     if (response.data.success && response.data.token) {
       setToken(response.data.token)
     }
@@ -75,52 +75,52 @@ export const authAPI = {
   },
   
   getStatus: () =>
-    api.get('/api/auth/status'),
+    api.get('/auth/status'),
   
   register: (username: string, password: string, email?: string, nickname?: string) =>
-    api.post('/api/auth/register', { username, password, email, nickname }),
+    api.post('/auth/register', { username, password, email, nickname }),
 }
 
 // 笔记相关API
 export const notesAPI = {
   collect: (url: string, cookies?: string) =>
-    api.post('/api/xiaohongshu/note', { url, cookies }),
+    api.post('/xiaohongshu/note', { url, cookies }),
   
   getList: (limit = 20, offset = 0) =>
-    api.get(`/api/xiaohongshu/notes?limit=${limit}&offset=${offset}`),
+    api.get(`/xiaohongshu/notes?limit=${limit}&offset=${offset}`),
   
   delete: (noteId: string) =>
-    api.delete(`/api/xiaohongshu/notes/${noteId}`),
+    api.delete(`/xiaohongshu/notes/${noteId}`),
   
   recreate: (title: string, content: string, noteId?: string) =>
-    api.post('/api/xiaohongshu/recreate', { title, content, note_id: noteId }),
+    api.post('/xiaohongshu/recreate', { title, content, note_id: noteId }),
 }
 
 // 二创历史API
 export const recreateAPI = {
   getHistory: (limit = 20, offset = 0) =>
-    api.get(`/api/xiaohongshu/recreate/history?limit=${limit}&offset=${offset}`),
+    api.get(`/xiaohongshu/recreate/history?limit=${limit}&offset=${offset}`),
   
   deleteHistory: (historyId: number) =>
-    api.delete(`/api/xiaohongshu/recreate/history/${historyId}`),
+    api.delete(`/xiaohongshu/recreate/history/${historyId}`),
 }
 
 // DeepSeek配置API
 export const deepseekAPI = {
   getConfig: () =>
-    api.get('/api/deepseek/config'),
+    api.get('/deepseek/config'),
   
   updateConfig: (config: any) =>
-    api.post('/api/deepseek/config', config),
+    api.post('/deepseek/config', config),
   
   testConnection: () =>
-    api.post('/api/deepseek/test'),
+    api.post('/deepseek/test'),
 }
 
 // 健康检查API
 export const healthAPI = {
   check: () =>
-    api.get('/api/health'),
+    api.get('/health'),
 }
 
 export default api

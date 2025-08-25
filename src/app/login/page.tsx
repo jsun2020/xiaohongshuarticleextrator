@@ -30,8 +30,12 @@ export default function LoginPage() {
 
   const checkAuthStatus = async () => {
     try {
-      const response = await authAPI.getStatus()
-      if (response.data.logged_in) {
+      const response = await fetch('/api/auth/status', {
+        method: 'GET',
+        credentials: 'include',
+      })
+      const data = await response.json()
+      if (data.logged_in) {
         router.push('/')
       }
     } catch (error) {
@@ -45,14 +49,27 @@ export default function LoginPage() {
     setError('')
 
     try {
-      const response = await authAPI.login(username, password)
-      if (response.data.success) {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          username: username.trim(),
+          password: password
+        }),
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
         router.push('/')
       } else {
-        setError(response.data.error || '登录失败')
+        setError(data.error || '登录失败')
       }
     } catch (error: any) {
-      setError(error.response?.data?.error || '登录失败，请检查网络连接')
+      setError('登录失败，请检查网络连接')
     } finally {
       setLoading(false)
     }
@@ -102,6 +119,7 @@ export default function LoginPage() {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify({
           username: username.trim(),
           password: password,

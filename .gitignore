@@ -46,6 +46,7 @@ config.json
 # Temporary files
 *.tmp
 *.temp
+nul
 
 # documents
 prd.md
@@ -55,3 +56,4 @@ deepseek_api.md
 demo_data.py
 final_test.py
 BUGFIX_NOTES.md
+.vercel
