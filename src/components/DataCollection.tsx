@@ -124,12 +124,12 @@ export default function DataCollection() {
                   <label className="text-sm font-medium text-gray-700">笔记ID</label>
                   <div className="flex items-center space-x-2 mt-1">
                     <code className="text-xs bg-gray-100 px-2 py-1 rounded">
-                      {result.data.note_id}
+                      {result.data?.note_id || 'N/A'}
                     </code>
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => copyToClipboard(result.data.note_id)}
+                      onClick={() => copyToClipboard(result.data?.note_id || '')}
                     >
                       <Copy className="h-3 w-3" />
                     </Button>
@@ -139,32 +139,32 @@ export default function DataCollection() {
                 <div>
                   <label className="text-sm font-medium text-gray-700">标题</label>
                   <p className="text-sm mt-1 p-2 bg-white rounded border">
-                    {result.data.title}
+                    {result.data?.title || '无标题'}
                   </p>
                 </div>
 
                 <div>
                   <label className="text-sm font-medium text-gray-700">类型</label>
                   <span className={`inline-block mt-1 px-2 py-1 text-xs rounded ${
-                    result.data.type === '视频' 
+                    result.data?.type === '视频' 
                       ? 'bg-purple-100 text-purple-700' 
                       : 'bg-blue-100 text-blue-700'
                   }`}>
-                    {result.data.type}
+                    {result.data?.type || '未知'}
                   </span>
                 </div>
 
                 <div>
                   <label className="text-sm font-medium text-gray-700">作者</label>
                   <div className="flex items-center space-x-2 mt-1">
-                    {result.data.author.avatar && (
+                    {result.data?.author?.avatar && (
                       <img
                         src={result.data.author.avatar}
                         alt="头像"
                         className="w-6 h-6 rounded-full"
                       />
                     )}
-                    <span className="text-sm">{result.data.author.nickname}</span>
+                    <span className="text-sm">{result.data?.author?.nickname || '未知作者'}</span>
                   </div>
                 </div>
               </div>
@@ -176,32 +176,32 @@ export default function DataCollection() {
                   <div className="grid grid-cols-2 gap-2 mt-1">
                     <div className="bg-white p-2 rounded border text-center">
                       <div className="text-lg font-semibold text-red-500">
-                        {result.data.stats.likes}
+                        {result.data?.stats?.likes || 0}
                       </div>
                       <div className="text-xs text-gray-500">点赞</div>
                     </div>
                     <div className="bg-white p-2 rounded border text-center">
                       <div className="text-lg font-semibold text-yellow-500">
-                        {result.data.stats.collects}
+                        {result.data?.stats?.collects || 0}
                       </div>
                       <div className="text-xs text-gray-500">收藏</div>
                     </div>
                     <div className="bg-white p-2 rounded border text-center">
                       <div className="text-lg font-semibold text-blue-500">
-                        {result.data.stats.comments}
+                        {result.data?.stats?.comments || 0}
                       </div>
                       <div className="text-xs text-gray-500">评论</div>
                     </div>
                     <div className="bg-white p-2 rounded border text-center">
                       <div className="text-lg font-semibold text-green-500">
-                        {result.data.stats.shares}
+                        {result.data?.stats?.shares || 0}
                       </div>
                       <div className="text-xs text-gray-500">分享</div>
                     </div>
                   </div>
                 </div>
 
-                {result.data.tags && result.data.tags.length > 0 && (
+                {result.data?.tags && Array.isArray(result.data.tags) && result.data.tags.length > 0 && (
                   <div>
                     <label className="text-sm font-medium text-gray-700">标签</label>
                     <div className="flex flex-wrap gap-1 mt-1">
@@ -210,41 +210,41 @@ export default function DataCollection() {
                           key={index}
                           className="px-2 py-1 text-xs bg-xiaohongshu-pink/10 text-xiaohongshu-red rounded-full"
                         >
-                          #{tag}
+                          #{String(tag)}
                         </span>
                       ))}
                     </div>
                   </div>
                 )}
 
-                {result.data.location && (
+                {result.data?.location && (
                   <div>
                     <label className="text-sm font-medium text-gray-700">位置</label>
-                    <p className="text-sm mt-1">{result.data.location}</p>
+                    <p className="text-sm mt-1">{String(result.data.location)}</p>
                   </div>
                 )}
 
-                {result.data.publish_time && (
+                {result.data?.publish_time && (
                   <div>
                     <label className="text-sm font-medium text-gray-700">发布时间</label>
-                    <p className="text-sm mt-1">{result.data.publish_time}</p>
+                    <p className="text-sm mt-1">{String(result.data.publish_time)}</p>
                   </div>
                 )}
               </div>
             </div>
 
             {/* 内容预览 */}
-            {result.data.content && (
+            {result.data?.content && (
               <div>
                 <label className="text-sm font-medium text-gray-700">内容预览</label>
                 <div className="mt-1 p-3 bg-white rounded border max-h-32 overflow-y-auto custom-scrollbar">
-                  <p className="text-sm whitespace-pre-wrap">{result.data.content}</p>
+                  <p className="text-sm whitespace-pre-wrap">{String(result.data.content)}</p>
                 </div>
               </div>
             )}
 
             {/* 图片预览 */}
-            {result.data.images && result.data.images.length > 0 && (
+            {result.data?.images && Array.isArray(result.data.images) && result.data.images.length > 0 && (
               <div>
                 <label className="text-sm font-medium text-gray-700">
                   图片 ({result.data.images.length}张)
@@ -253,7 +253,7 @@ export default function DataCollection() {
                   {result.data.images.slice(0, 8).map((image: string, index: number) => (
                     <img
                       key={index}
-                      src={image}
+                      src={String(image)}
                       alt={`图片${index + 1}`}
                       className="w-full h-20 object-cover rounded border"
                     />
