@@ -4,7 +4,7 @@ Handles: GET /api/xiaohongshu/notes
 """
 import sys
 import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from _utils import parse_request, create_response, require_auth
 from _database import db

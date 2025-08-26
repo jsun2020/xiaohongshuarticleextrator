@@ -87,19 +87,19 @@ export const notesAPI = {
     api.post('/xiaohongshu/note', { url, cookies }),
   
   getList: (limit = 20, offset = 0) =>
-    api.get(`/xiaohongshu/notes?limit=${limit}&offset=${offset}`),
+    api.get(`/xiaohongshu_notes_list?limit=${limit}&offset=${offset}`),
   
   delete: (noteId: string) =>
     api.delete(`/xiaohongshu/notes/${noteId}`),
   
   recreate: (title: string, content: string, noteId?: string) =>
-    api.post('/xiaohongshu/recreate', { title, content, note_id: noteId }),
+    api.post('/xiaohongshu_recreate', { title, content, note_id: noteId }),
 }
 
 // 二创历史API
 export const recreateAPI = {
   getHistory: (limit = 20, offset = 0) =>
-    api.get(`/xiaohongshu/recreate/history?limit=${limit}&offset=${offset}`),
+    api.get(`/xiaohongshu_recreate_history?limit=${limit}&offset=${offset}`),
   
   deleteHistory: (historyId: number) =>
     api.delete(`/xiaohongshu/recreate/history/${historyId}`),
