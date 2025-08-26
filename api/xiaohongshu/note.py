@@ -26,7 +26,7 @@ class handler(BaseHTTPRequestHandler):
             else:
                 data = {}
             
-            # 解析Cookie进行认证
+            # 解析Cookie和Authorization header进行认证
             cookies = {}
             cookie_header = self.headers.get('Cookie', '')
             if cookie_header:
@@ -44,8 +44,20 @@ class handler(BaseHTTPRequestHandler):
             
             # 检查用户认证
             user_id = require_auth(req_data)
+            print(f"[DEBUG] Authentication result: user_id={user_id}")
+            print(f"[DEBUG] Headers: {dict(self.headers)}")
+            print(f"[DEBUG] Cookies: {cookies}")
+            
             if not user_id:
-                self.send_error_response({'success': False, 'error': '请先登录'}, 401)
+                self.send_error_response({
+                    'success': False, 
+                    'error': '请先登录',
+                    'debug': {
+                        'headers': dict(self.headers),
+                        'cookies': cookies,
+                        'auth_result': user_id
+                    }
+                }, 401)
                 return
             
             url = data.get('url', '').strip()
