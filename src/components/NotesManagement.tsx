@@ -51,14 +51,19 @@ export default function NotesManagement() {
       else setLoadingMore(true)
 
       const response = await notesAPI.getList(20, offset)
+      console.log('Notes API response:', response.data)
       if (response.data.success) {
-        const newNotes = response.data.data.notes
-        setNotes(append ? [...notes, ...newNotes] : newNotes)
-        setTotal(response.data.data.total)
-        setHasMore(response.data.data.has_more)
+        const newNotes = response.data.data || []
+        console.log('New notes:', newNotes)
+        setNotes(append ? [...(notes || []), ...newNotes] : newNotes)
+        setTotal(response.data.pagination?.total || newNotes.length)
+        setHasMore(response.data.pagination?.total > (offset + newNotes.length))
+      } else {
+        console.error('API returned error:', response.data.error)
       }
     } catch (error) {
       console.error('加载笔记失败:', error)
+      if (!append) setNotes([])
     } finally {
       setLoading(false)
       setLoadingMore(false)
@@ -70,7 +75,7 @@ export default function NotesManagement() {
   }
 
   const handleLoadMore = () => {
-    loadNotes(notes.length, true)
+    loadNotes(notes?.length || 0, true)
   }
 
   const handleDelete = async (noteId: string) => {
@@ -133,7 +138,7 @@ export default function NotesManagement() {
       </Card>
 
       {/* 笔记列表 */}
-      {notes.length === 0 ? (
+      {notes?.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
             <p className="text-gray-500">暂无笔记数据</p>
@@ -144,7 +149,7 @@ export default function NotesManagement() {
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {notes.map((note) => (
+          {notes?.map((note) => (
             <Card key={note.note_id} className="overflow-hidden hover:shadow-lg transition-shadow">
               {/* 封面图片 */}
               {note.images.length > 0 && (

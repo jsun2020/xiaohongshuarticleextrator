@@ -98,12 +98,12 @@ class handler(BaseHTTPRequestHandler):
                     'nickname': user['nickname'] or user['username'],
                     'email': user['email']
                 }
-            }, session_id, user['id'])
+            }, session_id, user['id'], token)
             
         except Exception as e:
             self.send_error_response({'success': False, 'error': f'登录失败: {str(e)}'}, 500)
     
-    def send_success_response(self, data, session_id, user_id):
+    def send_success_response(self, data, session_id, user_id, token):
         """发送成功响应"""
         self.send_response(200)
         self.send_header('Content-Type', 'application/json')
@@ -115,10 +115,10 @@ class handler(BaseHTTPRequestHandler):
         is_dev = os.environ.get('NODE_ENV', 'development') == 'development' or 'localhost' in self.headers.get('host', '')
         secure_flag = '' if is_dev else '; Secure'
         
-        self.send_header('Set-Cookie', f'session_id={session_id}; HttpOnly{secure_flag}; SameSite=Lax; Max-Age={86400 * 7}')
-        self.send_header('Set-Cookie', f'session_token={token}; HttpOnly{secure_flag}; SameSite=Lax; Max-Age={86400 * 7}')
-        self.send_header('Set-Cookie', f'user_id={user_id}; HttpOnly{secure_flag}; SameSite=Lax; Max-Age={86400 * 7}')
-        self.send_header('Set-Cookie', f'logged_in=true{secure_flag}; SameSite=Lax; Max-Age={86400 * 7}')
+        self.send_header('Set-Cookie', f'session_id={session_id}; Path=/; HttpOnly{secure_flag}; SameSite=Lax; Max-Age={86400 * 7}')
+        self.send_header('Set-Cookie', f'session_token={token}; Path=/; HttpOnly{secure_flag}; SameSite=Lax; Max-Age={86400 * 7}')
+        self.send_header('Set-Cookie', f'user_id={user_id}; Path=/; HttpOnly{secure_flag}; SameSite=Lax; Max-Age={86400 * 7}')
+        self.send_header('Set-Cookie', f'logged_in=true; Path=/{secure_flag}; SameSite=Lax; Max-Age={86400 * 7}')
         
         self.end_headers()
         self.wfile.write(json.dumps(data, ensure_ascii=False).encode('utf-8'))

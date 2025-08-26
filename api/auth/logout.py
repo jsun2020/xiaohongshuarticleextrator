@@ -36,15 +36,23 @@ def handler(request):
     cookies = {
         'session_id': {
             'value': '',
-            'max_age': 0
+            'max_age': 0,
+            'path': '/'
+        },
+        'session_token': {
+            'value': '',
+            'max_age': 0,
+            'path': '/'
         },
         'user_id': {
             'value': '',
-            'max_age': 0
+            'max_age': 0,
+            'path': '/'
         },
         'logged_in': {
             'value': '',
-            'max_age': 0
+            'max_age': 0,
+            'path': '/'
         }
     }
     

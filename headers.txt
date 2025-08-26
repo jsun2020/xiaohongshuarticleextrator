@@ -1,0 +1,18 @@
+HTTP/1.1 200 OK
+cache-control: public, max-age=0, must-revalidate
+server: Vercel
+Date: Tue, 26 Aug 2025 03:19:44 GMT
+Content-Type: application/json
+Access-Control-Allow-Origin: *
+Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS
+Access-Control-Allow-Headers: Content-Type, Authorization
+Set-Cookie: session_id=eb910a057c5f583f800498bc086b23354a672a8a5670f4aa5e7c9b3004f4eaf6; Path=/; HttpOnly; SameSite=Lax; Max-Age=604800
+Set-Cookie: session_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjo4LCJleHAiOjE3NTYyNjQ3ODQsImlhdCI6MTc1NjE3ODM4NH0.fR1mBT5FmDPw1mZ1d0nOIFwMqaR7ZLe_HbKvvYnUIn0; Path=/; HttpOnly; SameSite=Lax; Max-Age=604800
+Set-Cookie: user_id=8; Path=/; HttpOnly; SameSite=Lax; Max-Age=604800
+Set-Cookie: logged_in=true; Path=/; SameSite=Lax; Max-Age=604800
+x-vercel-id: dev1::dev1::ifm9l-1756178384533-6ae4a07cc7c3
+x-vercel-cache: MISS
+Connection: keep-alive
+Keep-Alive: timeout=5
+Content-Length: 305
+
