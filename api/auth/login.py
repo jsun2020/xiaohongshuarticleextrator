@@ -111,10 +111,14 @@ class handler(BaseHTTPRequestHandler):
         self.send_header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
         
-        # 设置Cookie
-        self.send_header('Set-Cookie', f'session_id={session_id}; HttpOnly; Secure; SameSite=Lax; Max-Age={86400 * 7}')
-        self.send_header('Set-Cookie', f'user_id={user_id}; HttpOnly; Secure; SameSite=Lax; Max-Age={86400 * 7}')
-        self.send_header('Set-Cookie', f'logged_in=true; Secure; SameSite=Lax; Max-Age={86400 * 7}')
+        # 设置Cookie - 在开发环境中不使用Secure标志
+        is_dev = os.environ.get('NODE_ENV', 'development') == 'development' or 'localhost' in self.headers.get('host', '')
+        secure_flag = '' if is_dev else '; Secure'
+        
+        self.send_header('Set-Cookie', f'session_id={session_id}; HttpOnly{secure_flag}; SameSite=Lax; Max-Age={86400 * 7}')
+        self.send_header('Set-Cookie', f'session_token={token}; HttpOnly{secure_flag}; SameSite=Lax; Max-Age={86400 * 7}')
+        self.send_header('Set-Cookie', f'user_id={user_id}; HttpOnly{secure_flag}; SameSite=Lax; Max-Age={86400 * 7}')
+        self.send_header('Set-Cookie', f'logged_in=true{secure_flag}; SameSite=Lax; Max-Age={86400 * 7}')
         
         self.end_headers()
         self.wfile.write(json.dumps(data, ensure_ascii=False).encode('utf-8'))
