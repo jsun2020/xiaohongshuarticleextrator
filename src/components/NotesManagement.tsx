@@ -191,46 +191,46 @@ export default function NotesManagement() {
 
                 {/* 作者信息 */}
                 <div className="flex items-center space-x-2 mb-3">
-                  {note.author.avatar && (
+                  {note.author?.avatar && (
                     <img
                       src={note.author.avatar}
-                      alt={note.author.nickname}
+                      alt={note.author.nickname || '作者'}
                       className="w-6 h-6 rounded-full"
                     />
                   )}
-                  <span className="text-sm text-gray-700">{note.author.nickname}</span>
+                  <span className="text-sm text-gray-700">{note.author?.nickname || '未知作者'}</span>
                 </div>
 
                 {/* 互动数据 */}
                 <div className="grid grid-cols-4 gap-2 mb-3">
                   <div className="text-center">
                     <div className="text-sm font-semibold text-red-500">
-                      {formatNumber(note.stats.likes)}
+                      {formatNumber(note.stats?.likes)}
                     </div>
                     <div className="text-xs text-gray-500">点赞</div>
                   </div>
                   <div className="text-center">
                     <div className="text-sm font-semibold text-yellow-500">
-                      {formatNumber(note.stats.collects)}
+                      {formatNumber(note.stats?.collects)}
                     </div>
                     <div className="text-xs text-gray-500">收藏</div>
                   </div>
                   <div className="text-center">
                     <div className="text-sm font-semibold text-blue-500">
-                      {formatNumber(note.stats.comments)}
+                      {formatNumber(note.stats?.comments)}
                     </div>
                     <div className="text-xs text-gray-500">评论</div>
                   </div>
                   <div className="text-center">
                     <div className="text-sm font-semibold text-green-500">
-                      {formatNumber(note.stats.shares)}
+                      {formatNumber(note.stats?.shares)}
                     </div>
                     <div className="text-xs text-gray-500">分享</div>
                   </div>
                 </div>
 
                 {/* 标签 */}
-                {note.tags.length > 0 && (
+                {note.tags && note.tags.length > 0 && (
                   <div className="flex flex-wrap gap-1 mb-3">
                     {note.tags.slice(0, 3).map((tag, index) => (
                       <span

@@ -5,8 +5,17 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export function formatNumber(num: number | string): string {
-  const n = typeof num === 'string' ? parseInt(num) : num
+export function formatNumber(num: number | string | undefined | null): string {
+  if (num === undefined || num === null) {
+    return '0'
+  }
+  
+  const n = typeof num === 'string' ? parseInt(num) || 0 : num
+  
+  if (isNaN(n)) {
+    return '0'
+  }
+  
   if (n >= 10000) {
     return (n / 10000).toFixed(1) + 'w'
   }
@@ -16,8 +25,17 @@ export function formatNumber(num: number | string): string {
   return n.toString()
 }
 
-export function formatDate(dateString: string): string {
+export function formatDate(dateString: string | undefined | null): string {
+  if (!dateString) {
+    return '未知时间'
+  }
+  
   const date = new Date(dateString)
+  
+  if (isNaN(date.getTime())) {
+    return '未知时间'
+  }
+  
   const now = new Date()
   const diff = now.getTime() - date.getTime()
   
@@ -36,7 +54,8 @@ export function formatDate(dateString: string): string {
   }
 }
 
-export function truncateText(text: string, maxLength: number): string {
+export function truncateText(text: string | undefined | null, maxLength: number): string {
+  if (!text) return ''
   if (text.length <= maxLength) return text
   return text.substring(0, maxLength) + '...'
 }
