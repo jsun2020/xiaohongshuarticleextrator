@@ -57,13 +57,28 @@ class handler(BaseHTTPRequestHandler):
                 page = 1
                 per_page = 20
             
-            # 获取用户的笔记列表
+            # 获取用户的笔记列表和总数
             notes = db.get_notes(user_id, page, per_page)
+            total_count = db.get_notes_count(user_id)
             
             # 格式化笔记数据
             formatted_notes = []
             for note in notes:
                 try:
+                    # 处理images_data结构
+                    images_data = note.get('images_data', {})
+                    if isinstance(images_data, dict):
+                        # 如果是对象，提取images数组
+                        images = images_data.get('images', [])
+                        videos = images_data.get('videos', [])
+                    elif isinstance(images_data, list):
+                        # 如果已经是数组，直接使用
+                        images = images_data
+                        videos = []
+                    else:
+                        images = []
+                        videos = []
+                    
                     formatted_note = {
                         'id': note.get('id'),
                         'note_id': note.get('note_id'),
@@ -75,7 +90,9 @@ class handler(BaseHTTPRequestHandler):
                         'original_url': note.get('original_url', ''),
                         'author': note.get('author_data', {}),
                         'stats': note.get('stats_data', {}),
-                        'images': note.get('images_data', []),
+                        'images': images,
+                        'videos': videos,
+                        'tags': [],  # 添加空的tags字段，避免前端错误
                         'created_at': str(note.get('created_at', ''))
                     }
                     formatted_notes.append(formatted_note)
@@ -91,7 +108,7 @@ class handler(BaseHTTPRequestHandler):
                     'offset': offset,
                     'page': page,
                     'per_page': per_page,
-                    'total': len(formatted_notes)
+                    'total': total_count
                 }
             }, 200)
             

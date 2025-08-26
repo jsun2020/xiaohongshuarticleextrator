@@ -322,6 +322,26 @@ class DatabaseManager:
         finally:
             conn.close()
     
+    def get_notes_count(self, user_id: int) -> int:
+        """获取用户笔记总数"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            if self.use_postgres:
+                cursor.execute('SELECT COUNT(*) FROM notes WHERE user_id = %s', (user_id,))
+            else:
+                cursor.execute('SELECT COUNT(*) FROM notes WHERE user_id = ?', (user_id,))
+            
+            count = cursor.fetchone()[0]
+            return count
+            
+        except Exception as e:
+            print(f"获取笔记数量失败: {e}")
+            return 0
+        finally:
+            conn.close()
+    
     def get_user_config(self, user_id: int) -> Dict:
         """获取用户配置"""
         conn = self.get_connection()
