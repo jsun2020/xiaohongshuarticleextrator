@@ -61,18 +61,24 @@ class handler(BaseHTTPRequestHandler):
                 return
             
             url = data.get('url', '').strip()
+            print(f"[DEBUG] URL to crawl: {url}")
             if not url:
                 self.send_error_response({'success': False, 'error': '请提供小红书链接'}, 400)
                 return
             
             # 调用爬虫获取笔记信息
+            print(f"[DEBUG] Starting crawler...")
             result = get_xiaohongshu_note(url)
+            print(f"[DEBUG] Crawler result: success={result.get('success')}, error={result.get('error', 'None')}")
             
             if result.get('success'):
                 note_data = result['data']
+                print(f"[DEBUG] Note data keys: {list(note_data.keys()) if note_data else 'None'}")
                 
                 # 保存到数据库
+                print(f"[DEBUG] Saving to database for user_id={user_id}")
                 save_success = db.save_note(note_data, user_id)
+                print(f"[DEBUG] Database save result: {save_success}")
                 
                 if save_success:
                     self.send_json_response({
@@ -89,6 +95,7 @@ class handler(BaseHTTPRequestHandler):
                         'saved_to_db': False
                     }, 200)
             else:
+                print(f"[DEBUG] Crawler failed: {result}")
                 self.send_error_response({
                     'success': False,
                     'error': result.get('error', '获取笔记失败')
