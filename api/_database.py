@@ -115,6 +115,18 @@ class DatabaseManager:
                         FOREIGN KEY (note_id) REFERENCES notes (id)
                     )
                 ''')
+                
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS user_usage (
+                        id SERIAL PRIMARY KEY,
+                        user_id INTEGER NOT NULL,
+                        usage_type VARCHAR(50) NOT NULL,
+                        usage_count INTEGER DEFAULT 0,
+                        last_used TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (user_id) REFERENCES users (id),
+                        UNIQUE(user_id, usage_type)
+                    )
+                ''')
             else:
                 # SQLite建表语句
                 cursor.execute('''
@@ -170,6 +182,18 @@ class DatabaseManager:
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         FOREIGN KEY (user_id) REFERENCES users (id),
                         FOREIGN KEY (note_id) REFERENCES notes (id)
+                    )
+                ''')
+                
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS user_usage (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        user_id INTEGER NOT NULL,
+                        usage_type TEXT NOT NULL,
+                        usage_count INTEGER DEFAULT 0,
+                        last_used TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (user_id) REFERENCES users (id),
+                        UNIQUE(user_id, usage_type)
                     )
                 ''')
             
@@ -411,6 +435,54 @@ class DatabaseManager:
             
         except Exception as e:
             print(f"设置用户配置失败: {e}")
+            return False
+        finally:
+            conn.close()
+    
+    def get_user_usage(self, user_id: int, usage_type: str) -> int:
+        """获取用户使用次数"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            if self.use_postgres:
+                cursor.execute('SELECT usage_count FROM user_usage WHERE user_id = %s AND usage_type = %s', (user_id, usage_type))
+            else:
+                cursor.execute('SELECT usage_count FROM user_usage WHERE user_id = ? AND usage_type = ?', (user_id, usage_type))
+            
+            row = cursor.fetchone()
+            return row[0] if row else 0
+            
+        except Exception as e:
+            print(f"获取用户使用次数失败: {e}")
+            return 0
+        finally:
+            conn.close()
+    
+    def increment_user_usage(self, user_id: int, usage_type: str) -> bool:
+        """增加用户使用次数"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            if self.use_postgres:
+                cursor.execute('''
+                    INSERT INTO user_usage (user_id, usage_type, usage_count, last_used)
+                    VALUES (%s, %s, 1, CURRENT_TIMESTAMP)
+                    ON CONFLICT (user_id, usage_type)
+                    DO UPDATE SET usage_count = user_usage.usage_count + 1, last_used = CURRENT_TIMESTAMP
+                ''', (user_id, usage_type))
+            else:
+                cursor.execute('''
+                    INSERT OR REPLACE INTO user_usage (user_id, usage_type, usage_count, last_used)
+                    VALUES (?, ?, COALESCE((SELECT usage_count FROM user_usage WHERE user_id = ? AND usage_type = ?), 0) + 1, CURRENT_TIMESTAMP)
+                ''', (user_id, usage_type, user_id, usage_type))
+            
+            conn.commit()
+            return True
+            
+        except Exception as e:
+            print(f"增加用户使用次数失败: {e}")
             return False
         finally:
             conn.close()

@@ -312,15 +312,29 @@ export default function DeepSeekConfig({ open, onOpenChange }: DeepSeekConfigPro
             </div>
           </div>
 
+          {/* 免费试用说明 */}
+          <Card className="bg-green-50 border-green-200">
+            <CardContent className="pt-6">
+              <h4 className="font-medium text-green-900 mb-2">🎉 免费试用</h4>
+              <p className="text-sm text-green-800 mb-2">
+                新用户可以免费体验AI二创功能<strong> 3 次</strong>，无需配置API Key！
+              </p>
+              <p className="text-sm text-green-700">
+                试用次数用完后，请配置您自己的DeepSeek API Key继续使用。
+              </p>
+            </CardContent>
+          </Card>
+
           {/* 使用说明 */}
           <Card className="bg-blue-50 border-blue-200">
             <CardContent className="pt-6">
               <h4 className="font-medium text-blue-900 mb-2">使用说明</h4>
               <ul className="text-sm text-blue-800 space-y-1">
+                <li>• 新用户享有3次免费AI二创机会</li>
+                <li>• 免费试用后需要配置您自己的API Key</li>
                 <li>• 请确保API Key有效且有足够的余额</li>
                 <li>• 温度值越高，生成内容越有创意但可能偏离原意</li>
                 <li>• 建议先测试连接确保配置正确</li>
-                <li>• 配置保存后即可在笔记管理中使用AI二创功能</li>
               </ul>
             </CardContent>
           </Card>

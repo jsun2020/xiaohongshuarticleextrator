@@ -5,6 +5,7 @@ DeepSeek API 集成模块 - Vercel兼容版本
 
 import json
 import requests
+import os
 from typing import Dict, Any, Optional
 
 class DeepSeekAPI:
@@ -14,9 +15,19 @@ class DeepSeekAPI:
         # 不在初始化时缓存配置，每次使用时动态获取
         pass
     
-    def _get_current_config(self, user_config=None):
+    def _get_current_config(self, user_config=None, use_system_key=False):
         """获取当前配置"""
-        if user_config:
+        if use_system_key:
+            # 使用系统配置的API Key
+            system_api_key = os.getenv('DEEPSEEK_API_KEY', '')
+            return {
+                'api_key': system_api_key,
+                'base_url': 'https://api.deepseek.com',
+                'model': 'deepseek-chat',
+                'max_tokens': 1000,
+                'temperature': 0.7
+            }
+        elif user_config:
             # 使用传入的用户配置
             return {
                 'api_key': user_config.get('deepseek_api_key', ''),
@@ -35,15 +46,15 @@ class DeepSeekAPI:
                 'temperature': 0.7
             }
     
-    def _validate_config(self, user_config=None) -> bool:
+    def _validate_config(self, user_config=None, use_system_key=False) -> bool:
         """验证API配置"""
-        current_config = self._get_current_config(user_config)
+        current_config = self._get_current_config(user_config, use_system_key)
         api_key = current_config['api_key']
         if not api_key or not api_key.strip():
             return False
         return True
     
-    def recreate_note(self, title: str, content: str, user_config=None) -> Dict[str, Any]:
+    def recreate_note(self, title: str, content: str, user_config=None, user_id=None) -> Dict[str, Any]:
         """
         对笔记进行二创
         
@@ -51,24 +62,60 @@ class DeepSeekAPI:
             title: 原标题
             content: 原内容
             user_config: 用户配置（可选）
+            user_id: 用户ID（用于跟踪使用次数）
             
         Returns:
             dict: 包含新标题和内容的字典
         """
-        if not self._validate_config(user_config):
-            return {
-                'success': False,
-                'error': 'DeepSeek API配置不完整，请检查API Key设置'
-            }
+        # Import here to avoid circular import
+        from _database import db
+        
+        use_system_key = False
+        
+        # 检查用户是否还有免费使用次数
+        if user_id:
+            usage_count = db.get_user_usage(user_id, 'ai_recreate')
+            if usage_count < 3:
+                # 还有免费次数，使用系统API Key
+                use_system_key = True
+                print(f"[AI二创] 用户{user_id}使用免费次数({usage_count + 1}/3)")
+            else:
+                # 免费次数已用完，检查用户配置
+                if not self._validate_config(user_config):
+                    return {
+                        'success': False,
+                        'error': 'AI二创失败，请检查DeepSeek配置。您的3次免费试用已用完，请在"设置"中配置您自己的DeepSeek API Key。'
+                    }
+                print(f"[AI二创] 用户{user_id}使用自己的API Key")
+        else:
+            # 没有用户ID，尝试使用系统配置
+            use_system_key = True
+        
+        # 验证配置
+        if not self._validate_config(user_config, use_system_key):
+            if use_system_key:
+                return {
+                    'success': False,
+                    'error': 'AI二创失败，请检查DeepSeek配置。系统API Key未配置，请联系管理员。'
+                }
+            else:
+                return {
+                    'success': False,
+                    'error': 'AI二创失败，请检查DeepSeek配置。请在"设置"中配置正确的DeepSeek API Key。'
+                }
         
         try:
             # 构建提示词
             prompt = self._build_recreate_prompt(title, content)
             
             # 调用API
-            response = self._call_api(prompt, user_config)
+            response = self._call_api(prompt, user_config, use_system_key)
             
             if response['success']:
+                # 如果使用系统API Key成功，增加用户使用次数
+                if use_system_key and user_id and db.get_user_usage(user_id, 'ai_recreate') < 3:
+                    db.increment_user_usage(user_id, 'ai_recreate')
+                
                 # 解析返回的内容
                 result = self._parse_recreate_result(response['content'])
                 return {
@@ -114,11 +161,11 @@ class DeepSeekAPI:
         
         return prompt
     
-    def _call_api(self, prompt: str, user_config=None) -> Dict[str, Any]:
+    def _call_api(self, prompt: str, user_config=None, use_system_key=False) -> Dict[str, Any]:
         """调用DeepSeek API"""
         try:
             # 获取当前配置
-            current_config = self._get_current_config(user_config)
+            current_config = self._get_current_config(user_config, use_system_key)
             
             headers = {
                 'Authorization': f'Bearer {current_config["api_key"]}',

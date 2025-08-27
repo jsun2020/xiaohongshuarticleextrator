@@ -63,7 +63,7 @@ class handler(BaseHTTPRequestHandler):
             user_config = db.get_user_config(user_id)
             
             # 调用DeepSeek API进行二创
-            recreate_result = deepseek_api.recreate_note(title, content, user_config)
+            recreate_result = deepseek_api.recreate_note(title, content, user_config, user_id)
             
             if recreate_result['success']:
                 recreated_data = recreate_result['data']
