@@ -58,6 +58,13 @@ class DatabaseManager:
             return False
         
         try:
+            # Quick check if database is already initialized
+            if not self.use_postgres:
+                cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='users'")
+                if cursor.fetchone():
+                    # Database already initialized, skip expensive table creation
+                    conn.close()
+                    return True
             if self.use_postgres:
                 # PostgreSQL建表语句
                 cursor.execute('''

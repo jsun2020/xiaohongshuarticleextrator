@@ -62,22 +62,23 @@ class handler(BaseHTTPRequestHandler):
             cursor = conn.cursor()
             
             try:
+                # Get recreate history without requiring note join (to handle invalid note_ids)
                 if db.use_postgres:
                     cursor.execute('''
-                        SELECT rh.*, n.title as note_title, n.original_url
-                        FROM recreate_history rh
-                        LEFT JOIN notes n ON rh.note_id = n.id
-                        WHERE rh.user_id = %s
-                        ORDER BY rh.created_at DESC
+                        SELECT id, user_id, note_id, original_title, original_content, 
+                               recreated_title, recreated_content, created_at
+                        FROM recreate_history
+                        WHERE user_id = %s
+                        ORDER BY created_at DESC
                         LIMIT %s OFFSET %s
                     ''', (user_id, per_page, offset))
                 else:
                     cursor.execute('''
-                        SELECT rh.*, n.title as note_title, n.original_url
-                        FROM recreate_history rh
-                        LEFT JOIN notes n ON rh.note_id = n.id
-                        WHERE rh.user_id = ?
-                        ORDER BY rh.created_at DESC
+                        SELECT id, user_id, note_id, original_title, original_content, 
+                               recreated_title, recreated_content, created_at
+                        FROM recreate_history
+                        WHERE user_id = ?
+                        ORDER BY created_at DESC
                         LIMIT ? OFFSET ?
                     ''', (user_id, per_page, offset))
                 
@@ -91,8 +92,8 @@ class handler(BaseHTTPRequestHandler):
                         history_list.append({
                             'id': history.get('id'),
                             'note_id': history.get('note_id'),
-                            'note_title': history.get('note_title', ''),
-                            'original_url': history.get('original_url', ''),
+                            'note_title': history.get('original_title', ''),  # Use original_title as note title
+                            'original_url': '',  # Not available without note join
                             'original_title': history.get('original_title', ''),
                             'original_content': history.get('original_content', ''),
                             'recreated_title': history.get('recreated_title', ''),
