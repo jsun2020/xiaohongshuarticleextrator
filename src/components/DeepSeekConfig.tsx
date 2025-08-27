@@ -252,7 +252,9 @@ export default function DeepSeekConfig({ open, onOpenChange }: DeepSeekConfigPro
                   </span>
                 </div>
                 <p className="text-sm mt-1 text-gray-600">
-                  {testResult.message || testResult.error}
+                  {typeof (testResult.message || testResult.error) === 'string' 
+                    ? (testResult.message || testResult.error)
+                    : JSON.stringify(testResult.message || testResult.error)}
                 </p>
               </CardContent>
             </Card>
@@ -266,7 +268,9 @@ export default function DeepSeekConfig({ open, onOpenChange }: DeepSeekConfigPro
                   <AlertCircle className="h-4 w-4" />
                   <span className="text-sm font-medium">配置错误</span>
                 </div>
-                <p className="text-sm mt-1 text-red-600">{error}</p>
+                <p className="text-sm mt-1 text-red-600">
+                  {typeof error === 'string' ? error : JSON.stringify(error)}
+                </p>
               </CardContent>
             </Card>
           )}
