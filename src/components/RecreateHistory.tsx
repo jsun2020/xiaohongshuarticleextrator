@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { recreateAPI } from '@/lib/api'
@@ -31,24 +31,64 @@ export default function RecreateHistory() {
   const [selectedItem, setSelectedItem] = useState<RecreateHistoryItem | null>(null)
 
   useEffect(() => {
+    console.log('[DEBUG] RecreateHistory useEffect triggered')
     console.log('[DEBUG] RecreateHistory component mounted, loading history...')
     loadHistory()
+    console.log('[DEBUG] RecreateHistory loadHistory call completed')
+  }, [])
+  
+  // 添加一个立即执行的测试
+  console.log('[DEBUG] RecreateHistory render - about to check useEffect')
+  
+  // 测试：立即调用一次loadHistory看看是否工作
+  React.useEffect(() => {
+    console.log('[DEBUG] Alternative useEffect triggered')
+    setTimeout(() => {
+      console.log('[DEBUG] Delayed loadHistory call')
+      loadHistory()
+    }, 1000)
   }, [])
 
   const loadHistory = async (offset = 0, append = false) => {
+    console.log('[DEBUG] loadHistory called with offset:', offset, 'append:', append)
     try {
       if (!append) setLoading(true)
       else setLoadingMore(true)
 
       console.log('[DEBUG] Loading recreate history...')
+      console.log('[DEBUG] API URL will be: /api/xiaohongshu_recreate_history?limit=20&offset=' + offset)
+      console.log('[DEBUG] About to call recreateAPI.getHistory...')
+      
+      // 临时测试：直接使用fetch
+      console.log('[DEBUG] Testing direct fetch call...')
+      try {
+        const directResponse = await fetch(`/api/xiaohongshu_recreate_history?limit=20&offset=${offset}`, {
+          credentials: 'include'
+        })
+        console.log('[DEBUG] Direct fetch status:', directResponse.status)
+        const directData = await directResponse.text()
+        console.log('[DEBUG] Direct fetch response:', directData)
+      } catch (fetchError) {
+        console.error('[DEBUG] Direct fetch failed:', fetchError)
+      }
+      
+      const startTime = Date.now()
       const response = await recreateAPI.getHistory(20, offset)
+      const endTime = Date.now()
+      console.log('[DEBUG] API call took:', endTime - startTime, 'ms')
       console.log('[DEBUG] Raw response:', response)
       console.log('[DEBUG] Response status:', response.status)
       console.log('[DEBUG] Response data:', response.data)
+      console.log('[DEBUG] Response data type:', typeof response.data)
+      console.log('[DEBUG] Response data success:', response.data?.success)
+      console.log('[DEBUG] Response data.data length:', response.data?.data?.length)
       
       if (response.data.success) {
         const newHistory = response.data.data || []
         const pagination = response.data.pagination || {}
+        console.log('[DEBUG] New history length:', newHistory.length)
+        console.log('[DEBUG] First history item:', newHistory[0])
+        
         setHistory(append ? [...history, ...newHistory] : newHistory)
         setTotal(pagination.total || newHistory.length)
         setHasMore((pagination.offset + pagination.limit) < pagination.total)
@@ -62,6 +102,9 @@ export default function RecreateHistory() {
       }
     } catch (error) {
       console.error('加载历史记录失败:', error)
+      console.error('[DEBUG] Error details:', error)
+      console.error('[DEBUG] Error response:', error.response)
+      console.error('[DEBUG] Error response data:', error.response?.data)
     } finally {
       setLoading(false)
       setLoadingMore(false)
@@ -118,6 +161,15 @@ export default function RecreateHistory() {
       {/* DEBUG: Component rendered indicator */}
       <div className="bg-yellow-100 border border-yellow-400 rounded p-2 text-sm">
         DEBUG: RecreateHistory component is rendered at {new Date().toLocaleTimeString()}
+        <button 
+          onClick={() => {
+            console.log('[DEBUG] Manual loadHistory button clicked')
+            loadHistory()
+          }}
+          className="ml-4 px-2 py-1 bg-blue-500 text-white rounded text-xs"
+        >
+          Test Load History
+        </button>
       </div>
       
       {/* 统计信息和操作栏 */}
