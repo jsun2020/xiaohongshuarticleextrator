@@ -28,6 +28,12 @@ export default function MainApp({ user }: MainAppProps) {
   const router = useRouter()
 
   console.log('[DEBUG] MainApp active tab:', activeTab)
+  console.log('[DEBUG] MainApp render at:', new Date().toLocaleTimeString())
+
+  const handleTabChange = (value: string) => {
+    console.log('[DEBUG] Tab changing from', activeTab, 'to', value)
+    setActiveTab(value)
+  }
 
   const handleLogout = async () => {
     try {
@@ -83,7 +89,7 @@ export default function MainApp({ user }: MainAppProps) {
 
       {/* 主要内容区域 */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
           <TabsList className="grid w-full grid-cols-3 lg:w-[400px]">
             <TabsTrigger value="collection">数据采集</TabsTrigger>
             <TabsTrigger value="management">内容管理</TabsTrigger>

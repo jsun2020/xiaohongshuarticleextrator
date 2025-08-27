@@ -21,6 +21,7 @@ interface RecreateHistoryItem {
 
 export default function RecreateHistory() {
   console.log('[DEBUG] RecreateHistory component rendering...')
+  console.log('[DEBUG] Current timestamp:', new Date().toISOString())
   
   const [history, setHistory] = useState<RecreateHistoryItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -114,6 +115,11 @@ export default function RecreateHistory() {
 
   return (
     <div className="space-y-6">
+      {/* DEBUG: Component rendered indicator */}
+      <div className="bg-yellow-100 border border-yellow-400 rounded p-2 text-sm">
+        DEBUG: RecreateHistory component is rendered at {new Date().toLocaleTimeString()}
+      </div>
+      
       {/* 统计信息和操作栏 */}
       <Card>
         <CardHeader>
