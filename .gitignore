@@ -55,6 +55,7 @@ Project Requirements.md
 PROJECT_SUMMARY.md
 deepseek_api.md
 demo_data.py
+DATABASE_SAVE_FIX.md
 final_test.py
 BUGFIX_NOTES.md
 .vercel
@@ -65,3 +66,4 @@ test_api_structure.py
 test_functions_directly.py
 TEST_GUIDE.md
 test_local_api.py
+
