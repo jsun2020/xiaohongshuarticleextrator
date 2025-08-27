@@ -27,10 +27,11 @@ class DatabaseManager:
                 'password': url.password
             }
         else:
-            # 开发环境使用SQLite - 使用绝对路径确保所有API使用同一数据库
-            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            # 开发环境使用SQLite - 强制使用固定的项目目录路径
+            # Vercel每个函数都有独立的临时目录，所以需要使用固定路径
+            project_root = r'C:\Users\sr9rfx\.claude\xiaohongshuarticleextrator'
             self.db_path = os.path.join(project_root, 'xiaohongshu_notes.db')
-            print(f"[DB] Using database path: {self.db_path}")
+            print(f"[DB] Using fixed database path: {self.db_path}")
     
     def get_connection(self):
         """获取数据库连接"""
