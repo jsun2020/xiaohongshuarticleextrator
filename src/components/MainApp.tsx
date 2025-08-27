@@ -27,6 +27,8 @@ export default function MainApp({ user }: MainAppProps) {
   const [showConfig, setShowConfig] = useState(false)
   const router = useRouter()
 
+  console.log('[DEBUG] MainApp active tab:', activeTab)
+
   const handleLogout = async () => {
     try {
       await authAPI.logout()

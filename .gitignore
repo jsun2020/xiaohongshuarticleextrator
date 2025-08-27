@@ -49,6 +49,7 @@ config.json
 nul
 
 # documents
+CLAUDE.md
 prd.md
 Project Requirements.md
 PROJECT_SUMMARY.md
@@ -57,3 +58,10 @@ demo_data.py
 final_test.py
 BUGFIX_NOTES.md
 .vercel
+test_api_structure.py
+LOCAL_TESTING_GUIDE.md
+LOGIN_FIX_SUMMARY.md
+test_api_structure.py
+test_functions_directly.py
+TEST_GUIDE.md
+test_local_api.py

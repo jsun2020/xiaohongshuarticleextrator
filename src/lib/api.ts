@@ -36,8 +36,10 @@ api.interceptors.request.use(
   (config) => {
     const token = getToken()
     if (token) {
+      // 发送Authorization header，backend会优先检查这个
       config.headers.Authorization = `Bearer ${token}`
     }
+    // withCredentials: true 确保cookies被发送（包括HttpOnly的session_token）
     return config
   },
   (error) => {
