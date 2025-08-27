@@ -27,8 +27,10 @@ class DatabaseManager:
                 'password': url.password
             }
         else:
-            # 开发环境使用SQLite
-            self.db_path = 'xiaohongshu_notes.db'
+            # 开发环境使用SQLite - 使用绝对路径确保所有API使用同一数据库
+            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            self.db_path = os.path.join(project_root, 'xiaohongshu_notes.db')
+            print(f"[DB] Using database path: {self.db_path}")
     
     def get_connection(self):
         """获取数据库连接"""
