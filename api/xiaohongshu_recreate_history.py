@@ -17,6 +17,7 @@ class handler(BaseHTTPRequestHandler):
         """处理二创历史请求"""
         # 初始化数据库
         db.init_database()
+        print(f"[DB DEBUG] Recreate history using database: {db.db_path}")
         
         try:
             # 解析查询参数
@@ -40,7 +41,12 @@ class handler(BaseHTTPRequestHandler):
             }
             
             # 检查用户认证
+            print(f"[AUTH DEBUG] Cookies in request: {list(cookies.keys())}")
+            print(f"[AUTH DEBUG] Headers: {list(self.headers.keys())}")
+            
             user_id = require_auth(req_data)
+            print(f"[AUTH DEBUG] User ID from auth: {user_id}")
+            
             if not user_id:
                 self.send_error_response({'success': False, 'error': '请先登录'}, 401)
                 return
@@ -104,11 +110,7 @@ class handler(BaseHTTPRequestHandler):
                         print(f"Error formatting history: {format_error}")
                         continue
                 
-                print(f"[DEBUG] Found {len(history_list)} recreate history records for user {user_id}")
-                if history_list:
-                    print(f"[DEBUG] First record: {history_list[0].get('recreated_title', 'No title')[:30]}...")
-                
-                self.send_json_response({
+                response_data = {
                     'success': True,
                     'data': history_list,
                     'pagination': {
@@ -118,7 +120,13 @@ class handler(BaseHTTPRequestHandler):
                         'per_page': per_page,
                         'total': len(history_list)
                     }
-                }, 200)
+                }
+                
+                print(f"[API DEBUG] Returning {len(history_list)} history records")
+                if history_list:
+                    print(f"[API DEBUG] First record keys: {list(history_list[0].keys())}")
+                
+                self.send_json_response(response_data, 200)
                 
             finally:
                 conn.close()

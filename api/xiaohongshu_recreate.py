@@ -16,6 +16,7 @@ class handler(BaseHTTPRequestHandler):
         """处理笔记二创请求"""
         # 初始化数据库
         db.init_database()
+        print(f"[DB DEBUG] AI recreate using database: {db.db_path}")
         
         try:
             # 读取请求体
@@ -70,6 +71,7 @@ class handler(BaseHTTPRequestHandler):
                 
                 # 保存二创历史
                 if note_id:
+                    print(f"[DB DEBUG] Saving recreate history for user {user_id}, note {note_id}")
                     try:
                         conn = db.get_connection()
                         cursor = conn.cursor()

@@ -9,17 +9,19 @@ import { Loader2, RefreshCw, Trash2, Copy, History, ArrowRight } from 'lucide-re
 
 interface RecreateHistoryItem {
   id: number
-  original_note_id: string
+  note_id: string | number
   original_title: string
   original_content: string
-  new_title: string
-  new_content: string
+  recreated_title: string
+  recreated_content: string
   created_at: string
   note_title: string
-  author_nickname: string
+  original_url?: string
 }
 
 export default function RecreateHistory() {
+  console.log('[DEBUG] RecreateHistory component rendering...')
+  
   const [history, setHistory] = useState<RecreateHistoryItem[]>([])
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
@@ -28,6 +30,7 @@ export default function RecreateHistory() {
   const [selectedItem, setSelectedItem] = useState<RecreateHistoryItem | null>(null)
 
   useEffect(() => {
+    console.log('[DEBUG] RecreateHistory component mounted, loading history...')
     loadHistory()
   }, [])
 
@@ -36,17 +39,25 @@ export default function RecreateHistory() {
       if (!append) setLoading(true)
       else setLoadingMore(true)
 
+      console.log('[DEBUG] Loading recreate history...')
       const response = await recreateAPI.getHistory(20, offset)
+      console.log('[DEBUG] Raw response:', response)
+      console.log('[DEBUG] Response status:', response.status)
+      console.log('[DEBUG] Response data:', response.data)
+      
       if (response.data.success) {
-        const newHistory = response.data.data.history
+        const newHistory = response.data.data || []
+        const pagination = response.data.pagination || {}
         setHistory(append ? [...history, ...newHistory] : newHistory)
-        setTotal(response.data.data.total)
-        setHasMore(response.data.data.has_more)
+        setTotal(pagination.total || newHistory.length)
+        setHasMore((pagination.offset + pagination.limit) < pagination.total)
         
         // 默认选择第一个项目
         if (!append && newHistory.length > 0 && !selectedItem) {
           setSelectedItem(newHistory[0])
         }
+      } else {
+        console.log('[DEBUG] API response not successful:', response.data)
       }
     } catch (error) {
       console.error('加载历史记录失败:', error)
@@ -156,7 +167,7 @@ export default function RecreateHistory() {
                     <div className="flex items-start justify-between">
                       <div className="flex-1 min-w-0">
                         <h4 className="font-medium text-sm truncate mb-1">
-                          {item.new_title}
+                          {item.recreated_title}
                         </h4>
                         <p className="text-xs text-gray-500 mb-2">
                           来源: {item.note_title || '未知笔记'}
@@ -247,16 +258,16 @@ export default function RecreateHistory() {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => copyToClipboard(selectedItem.new_title)}
+                            onClick={() => copyToClipboard(selectedItem.recreated_title)}
                           >
                             <Copy className="h-3 w-3 mr-1" />
                             复制
                           </Button>
                         </div>
                         <div className="p-3 bg-green-50 rounded-lg border border-green-200">
-                          <p className="text-sm font-medium">{selectedItem.new_title}</p>
+                          <p className="text-sm font-medium">{selectedItem.recreated_title}</p>
                           <p className="text-xs text-gray-500 mt-1">
-                            字符数: {selectedItem.new_title.length}
+                            字符数: {selectedItem.recreated_title.length}
                           </p>
                         </div>
                       </div>
@@ -294,14 +305,14 @@ export default function RecreateHistory() {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => copyToClipboard(selectedItem.new_content)}
+                            onClick={() => copyToClipboard(selectedItem.recreated_content)}
                           >
                             <Copy className="h-3 w-3 mr-1" />
                             复制
                           </Button>
                         </div>
                         <div className="p-3 bg-green-50 rounded-lg border border-green-200 h-64 overflow-y-auto custom-scrollbar">
-                          <p className="text-sm whitespace-pre-wrap">{selectedItem.new_content}</p>
+                          <p className="text-sm whitespace-pre-wrap">{selectedItem.recreated_content}</p>
                         </div>
                       </div>
                     </div>
@@ -318,7 +329,7 @@ export default function RecreateHistory() {
                       <div>
                         <label className="font-medium text-gray-700">笔记ID</label>
                         <p className="text-gray-600 font-mono text-xs">
-                          {selectedItem.original_note_id || '未知'}
+                          {selectedItem.note_id || '未知'}
                         </p>
                       </div>
                       <div>
@@ -328,9 +339,9 @@ export default function RecreateHistory() {
                         </p>
                       </div>
                       <div>
-                        <label className="font-medium text-gray-700">原作者</label>
-                        <p className="text-gray-600">
-                          {selectedItem.author_nickname || '未知'}
+                        <label className="font-medium text-gray-700">原链接</label>
+                        <p className="text-gray-600 truncate font-mono text-xs">
+                          {selectedItem.original_url || '未知'}
                         </p>
                       </div>
                       <div>

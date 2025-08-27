@@ -48,16 +48,10 @@ class handler(BaseHTTPRequestHandler):
             
             # 获取用户配置
             user_config = db.get_user_config(user_id)
-            print(f"[DEBUG] GET config for user {user_id}: {list(user_config.keys()) if user_config else 'None'}")
             
             # 掩码显示API Key
-            raw_api_key = user_config.get('deepseek_api_key', '')
-            masked_api_key = mask_api_key(raw_api_key)
-            print(f"[DEBUG] Raw API key: {'Yes' if raw_api_key else 'No'}")
-            print(f"[DEBUG] Masked API key: {masked_api_key}")
-            
             masked_config = {
-                'api_key': masked_api_key,
+                'api_key': mask_api_key(user_config.get('deepseek_api_key', '')),
                 'base_url': user_config.get('deepseek_base_url', 'https://api.deepseek.com'),
                 'model': user_config.get('deepseek_model', 'deepseek-chat'),
                 'temperature': float(user_config.get('deepseek_temperature', '0.7')),
@@ -119,8 +113,6 @@ class handler(BaseHTTPRequestHandler):
             temperature = data.get('temperature', 0.7)
             max_tokens = data.get('max_tokens', 1000)
             
-            print(f"[DEBUG] POST data received: api_key={'Yes' if api_key else 'No'}, base_url={base_url}")
-            
             # 验证必填字段
             if not api_key:
                 self.send_error_response({
@@ -132,19 +124,10 @@ class handler(BaseHTTPRequestHandler):
             # 检查是否是掩码值，如果是则不更新
             current_config = db.get_user_config(user_id)
             current_api_key = current_config.get('deepseek_api_key', '')
-            masked_key = mask_api_key(current_api_key)
             
-            print(f"[DEBUG] Current API key: {'Yes' if current_api_key else 'No'}")
-            print(f"[DEBUG] Masked key: {masked_key}")
-            print(f"[DEBUG] Input key matches mask: {api_key == masked_key}")
-            
-            if api_key != masked_key:
+            if api_key != mask_api_key(current_api_key):
                 # 不是掩码值，更新API Key
-                print(f"[DEBUG] Saving new API key...")
-                result = db.set_user_config(user_id, 'deepseek_api_key', api_key)
-                print(f"[DEBUG] Save result: {result}")
-            else:
-                print(f"[DEBUG] Skipping API key save (masked value)")
+                db.set_user_config(user_id, 'deepseek_api_key', api_key)
             
             # 更新其他配置
             db.set_user_config(user_id, 'deepseek_base_url', base_url)
