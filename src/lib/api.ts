@@ -87,7 +87,7 @@ export const notesAPI = {
     api.post('/xiaohongshu/note', { url, cookies }),
   
   getList: (limit = 20, offset = 0) =>
-    api.get(`/xiaohongshu_notes_list?limit=${limit}&offset=${offset}`),
+    api.get(`/xiaohongshu_notes_list?limit=${limit}&offset=${offset}&_t=${Date.now()}`),
   
   delete: (noteId: string) =>
     api.delete(`/xiaohongshu/notes/${noteId}`),

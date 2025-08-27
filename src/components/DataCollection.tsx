@@ -36,6 +36,18 @@ export default function DataCollection() {
       if (response.data.success) {
         setResult(response.data)
         setUrl('') // 清空输入框
+        
+        // Force refresh notes list by clearing any browser cache
+        // This helps sync between collection and management tabs
+        if ('caches' in window) {
+          caches.keys().then(names => {
+            names.forEach(name => {
+              if (name.includes('xiaohongshu') || name.includes('notes')) {
+                caches.delete(name)
+              }
+            })
+          })
+        }
       } else {
         setError(response.data.error || '采集失败')
       }

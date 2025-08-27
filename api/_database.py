@@ -236,8 +236,6 @@ class DatabaseManager:
         cursor = conn.cursor()
         
         try:
-            print(f"[DB DEBUG] Attempting to save note: note_id={note_data.get('note_id')}, user_id={user_id}")
-            
             # Check if note already exists
             if self.use_postgres:
                 cursor.execute('SELECT id FROM notes WHERE note_id = %s', (note_data.get('note_id'),))
@@ -246,8 +244,8 @@ class DatabaseManager:
             
             existing = cursor.fetchone()
             if existing:
-                print(f"[DB DEBUG] Note already exists with id={existing[0]}")
-                return False
+                print(f"[SAVE] Note {note_data.get('note_id')} already exists in database")
+                return False  # Note already exists
             
             # 处理JSON数据
             author_json = json.dumps(note_data.get('author', {}), ensure_ascii=False)
@@ -263,7 +261,6 @@ class DatabaseManager:
             }
             images_json = json.dumps(all_media, ensure_ascii=False)
             
-            print(f"[DB DEBUG] Inserting new note...")
             if self.use_postgres:
                 cursor.execute('''
                     INSERT INTO notes (user_id, note_id, title, content, note_type, 
@@ -286,13 +283,21 @@ class DatabaseManager:
                       note_data.get('original_url'), author_json, stats_json, images_json))
             
             conn.commit()
-            print(f"[DB DEBUG] Successfully saved note to database")
+            print(f"[SAVE] Committed to database for note_id: {note_data.get('note_id')}")
+            
+            # Force verify the insert worked
+            if not self.use_postgres:
+                cursor.execute("SELECT last_insert_rowid()")  
+                new_id = cursor.fetchone()[0]
+                print(f"[SAVE] New row ID: {new_id}")
+                if not new_id:
+                    print(f"[SAVE] ERROR: No row ID returned")
+                    return False
             return True
             
         except Exception as e:
-            print(f"[DB DEBUG] 保存笔记失败: {e}")
-            import traceback
-            traceback.print_exc()
+            print(f"[SAVE] ERROR: 保存笔记失败: {e}")
+            conn.rollback()  # Explicit rollback on error
             return False
         finally:
             conn.close()
