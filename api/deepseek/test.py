@@ -50,6 +50,13 @@ class handler(BaseHTTPRequestHandler):
             
             # 获取用户配置
             user_config = db.get_user_config(user_id)
+            print(f"[DEBUG] User {user_id} config: {list(user_config.keys()) if user_config else 'None'}")
+            
+            # 检查API Key
+            api_key = user_config.get('deepseek_api_key', '')
+            print(f"[DEBUG] API Key present: {'Yes' if api_key else 'No'}")
+            if api_key:
+                print(f"[DEBUG] API Key starts with: {api_key[:10]}...")
             
             # 测试连接
             result = deepseek_api.test_connection(user_config)

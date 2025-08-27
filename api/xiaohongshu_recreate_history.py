@@ -104,6 +104,10 @@ class handler(BaseHTTPRequestHandler):
                         print(f"Error formatting history: {format_error}")
                         continue
                 
+                print(f"[DEBUG] Found {len(history_list)} recreate history records for user {user_id}")
+                if history_list:
+                    print(f"[DEBUG] First record: {history_list[0].get('recreated_title', 'No title')[:30]}...")
+                
                 self.send_json_response({
                     'success': True,
                     'data': history_list,
