@@ -1,12 +1,7 @@
 {
-  "version": 2,
   "functions": {
-    "api/**/[!_]*.py": {}
-  },
-  "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "/api/$1"
+    "api/**/[!_]*.py": {
+      "runtime": "@vercel/python@3.9.0"
     }
-  ]
+  }
 }
