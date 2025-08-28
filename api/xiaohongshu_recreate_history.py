@@ -17,6 +17,10 @@ class handler(BaseHTTPRequestHandler):
         """处理二创历史请求"""
         # 初始化数据库
         db.init_database()
+        print(f"[CRITICAL DEBUG] Recreate history - database path: {db.db_path}")
+        print(f"[CRITICAL DEBUG] Recreate history - database exists: {os.path.exists(db.db_path)}")
+        print(f"[CRITICAL DEBUG] Recreate history - current working dir: {os.getcwd()}")
+        print(f"[CRITICAL DEBUG] Recreate history - temp dir: {os.environ.get('TMPDIR', 'not set')}")
         print(f"[DB DEBUG] Recreate history using database: {db.db_path}")
         
         try:
@@ -101,6 +105,14 @@ class handler(BaseHTTPRequestHandler):
                 rows = cursor.fetchall()
                 columns = [desc[0] for desc in cursor.description]
                 
+                # Get total count
+                if db.use_postgres:
+                    cursor.execute('SELECT COUNT(*) FROM recreate_history WHERE user_id = %s', (user_id,))
+                else:
+                    cursor.execute('SELECT COUNT(*) FROM recreate_history WHERE user_id = ?', (user_id,))
+                
+                total_count = cursor.fetchone()[0]
+                
                 history_list = []
                 for row in rows:
                     try:
@@ -108,13 +120,13 @@ class handler(BaseHTTPRequestHandler):
                         # Ensure no NULL values with double protection
                         history_list.append({
                             'id': history.get('id') or 0,
-                            'note_id': history.get('note_id') or '',
+                            'note_id': str(history.get('note_id') or ''),
                             'note_title': history.get('original_title') or '',  # Use original_title as note title
                             'original_url': '',  # Not available without note join
                             'original_title': history.get('original_title') or '',
                             'original_content': history.get('original_content') or '',
-                            'recreated_title': history.get('recreated_title') or '',
-                            'recreated_content': history.get('recreated_content') or '',
+                            'new_title': history.get('recreated_title') or '',
+                            'new_content': history.get('recreated_content') or '',
                             'created_at': str(history.get('created_at') or '')
                         })
                     except Exception as format_error:
@@ -129,13 +141,15 @@ class handler(BaseHTTPRequestHandler):
                         'offset': offset,
                         'page': page,
                         'per_page': per_page,
-                        'total': len(history_list)
+                        'total': total_count
                     }
                 }
                 
                 print(f"[API DEBUG] Returning {len(history_list)} history records")
                 if history_list:
                     print(f"[API DEBUG] First record keys: {list(history_list[0].keys())}")
+                    print(f"[API DEBUG] First record data: {history_list[0]}")
+                    print(f"[API DEBUG] Response structure: {{'success': {response_data['success']}, 'data_length': {len(response_data['data'])}, 'pagination': {response_data['pagination']}}}")
                 
                 self.send_json_response(response_data, 200)
                 

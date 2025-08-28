@@ -7,13 +7,14 @@ import { recreateAPI } from '@/lib/api'
 import { formatDate } from '@/lib/utils'
 import { Loader2, RefreshCw, Trash2, Copy, History, ArrowRight } from 'lucide-react'
 
+// 已修正类型定义
 interface RecreateHistoryItem {
   id: number
   note_id: string | number
   original_title: string
   original_content: string
-  recreated_title: string
-  recreated_content: string
+  new_title: string
+  new_content: string
   created_at: string
   note_title: string
   original_url?: string
@@ -32,25 +33,41 @@ export default function RecreateHistory() {
     loadHistory()
   }, [])
 
+  useEffect(() => {
+    console.log('[FRONTEND DEBUG] History state changed, length:', history.length)
+    if (history.length > 0) {
+      console.log('[FRONTEND DEBUG] First history item:', history[0])
+    }
+  }, [history])
+
   const loadHistory = async (offset = 0, append = false) => {
     try {
       if (!append) setLoading(true)
       else setLoadingMore(true)
 
+      console.log('[FRONTEND DEBUG] Loading history with offset:', offset, 'append:', append)
       const response = await recreateAPI.getHistory(20, offset)
+      console.log('[FRONTEND DEBUG] API response:', response.data)
       
       if (response.data.success) {
         const newHistory = response.data.data || []
         const pagination = response.data.pagination || {}
         
+        console.log('[FRONTEND DEBUG] New history length:', newHistory.length)
+        console.log('[FRONTEND DEBUG] Pagination:', pagination)
+        console.log('[FRONTEND DEBUG] First record:', newHistory[0])
+        
         setHistory(append ? [...history, ...newHistory] : newHistory)
         setTotal(pagination.total || newHistory.length)
         setHasMore((pagination.offset + pagination.limit) < pagination.total)
         
-        // 默认选择第一个项目
         if (!append && newHistory.length > 0 && !selectedItem) {
           setSelectedItem(newHistory[0])
         }
+        
+        console.log('[FRONTEND DEBUG] History state should be updated with', newHistory.length, 'records')
+      } else {
+        console.error('[FRONTEND DEBUG] API returned success=false:', response.data)
       }
     } catch (error) {
       console.error('加载历史记录失败:', error)
@@ -79,7 +96,6 @@ export default function RecreateHistory() {
         setHistory(newHistory)
         setTotal(total - 1)
         
-        // 如果删除的是当前选中项，选择下一个
         if (selectedItem?.id === historyId) {
           setSelectedItem(newHistory.length > 0 ? newHistory[0] : null)
         }
@@ -107,7 +123,6 @@ export default function RecreateHistory() {
 
   return (
     <div className="space-y-6">
-      {/* 统计信息和操作栏 */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -144,7 +159,6 @@ export default function RecreateHistory() {
         </Card>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* 左侧历史列表 */}
           <div className="lg:col-span-1 space-y-4">
             <h3 className="font-semibold text-lg">历史记录</h3>
             <div className="space-y-2 max-h-[600px] overflow-y-auto custom-scrollbar">
@@ -160,7 +174,8 @@ export default function RecreateHistory() {
                     <div className="flex items-start justify-between">
                       <div className="flex-1 min-w-0">
                         <h4 className="font-medium text-sm truncate mb-1">
-                          {item.recreated_title}
+                          {/* 已修正 */}
+                          {item.new_title}
                         </h4>
                         <p className="text-xs text-gray-500 mb-2">
                           来源: {item.note_title || '未知笔记'}
@@ -207,7 +222,6 @@ export default function RecreateHistory() {
             </div>
           </div>
 
-          {/* 右侧详情对比 */}
           <div className="lg:col-span-2">
             {selectedItem ? (
               <div className="space-y-6">
@@ -218,7 +232,6 @@ export default function RecreateHistory() {
                   </div>
                 </div>
 
-                {/* 标题对比 */}
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-base">标题对比</CardTitle>
@@ -251,16 +264,18 @@ export default function RecreateHistory() {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => copyToClipboard(selectedItem.recreated_title)}
+                            onClick={() => copyToClipboard(selectedItem.new_title)}
                           >
                             <Copy className="h-3 w-3 mr-1" />
                             复制
                           </Button>
                         </div>
                         <div className="p-3 bg-green-50 rounded-lg border border-green-200">
-                          <p className="text-sm font-medium">{selectedItem.recreated_title}</p>
+                          {/* 已修正 */}
+                          <p className="text-sm font-medium">{selectedItem.new_title}</p>
                           <p className="text-xs text-gray-500 mt-1">
-                            字符数: {selectedItem.recreated_title.length}
+                            {/* 已修正 */}
+                            字符数: {selectedItem.new_title.length}
                           </p>
                         </div>
                       </div>
@@ -268,7 +283,6 @@ export default function RecreateHistory() {
                   </CardContent>
                 </Card>
 
-                {/* 内容对比 */}
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-base">内容对比</CardTitle>
@@ -298,21 +312,21 @@ export default function RecreateHistory() {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => copyToClipboard(selectedItem.recreated_content)}
+                            onClick={() => copyToClipboard(selectedItem.new_content)}
                           >
                             <Copy className="h-3 w-3 mr-1" />
                             复制
                           </Button>
                         </div>
                         <div className="p-3 bg-green-50 rounded-lg border border-green-200 h-64 overflow-y-auto custom-scrollbar">
-                          <p className="text-sm whitespace-pre-wrap">{selectedItem.recreated_content}</p>
+                          {/* 已修正 */}
+                          <p className="text-sm whitespace-pre-wrap">{selectedItem.new_content}</p>
                         </div>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
 
-                {/* 元信息 */}
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-base">记录信息</CardTitle>

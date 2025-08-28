@@ -16,7 +16,10 @@ class handler(BaseHTTPRequestHandler):
         """处理笔记二创请求"""
         # 初始化数据库
         db.init_database()
-        print(f"[DB DEBUG] AI recreate using database: {db.db_path}")
+        print(f"[CRITICAL DEBUG] AI recreate - database path: {db.db_path}")
+        print(f"[CRITICAL DEBUG] AI recreate - database exists: {os.path.exists(db.db_path)}")
+        print(f"[CRITICAL DEBUG] AI recreate - current working dir: {os.getcwd()}")
+        print(f"[CRITICAL DEBUG] AI recreate - temp dir: {os.environ.get('TMPDIR', 'not set')}")
         
         try:
             # 读取请求体
