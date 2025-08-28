@@ -68,11 +68,16 @@ class handler(BaseHTTPRequestHandler):
             cursor = conn.cursor()
             
             try:
-                # Get recreate history without requiring note join (to handle invalid note_ids)
+                # Get recreate history with COALESCE to handle NULL values
                 if db.use_postgres:
                     cursor.execute('''
-                        SELECT id, user_id, note_id, original_title, original_content, 
-                               recreated_title, recreated_content, created_at
+                        SELECT id, user_id, 
+                               COALESCE(note_id, '') as note_id,
+                               COALESCE(original_title, '') as original_title, 
+                               COALESCE(original_content, '') as original_content, 
+                               COALESCE(recreated_title, '') as recreated_title, 
+                               COALESCE(recreated_content, '') as recreated_content, 
+                               created_at
                         FROM recreate_history
                         WHERE user_id = %s
                         ORDER BY created_at DESC
@@ -80,8 +85,13 @@ class handler(BaseHTTPRequestHandler):
                     ''', (user_id, per_page, offset))
                 else:
                     cursor.execute('''
-                        SELECT id, user_id, note_id, original_title, original_content, 
-                               recreated_title, recreated_content, created_at
+                        SELECT id, user_id, 
+                               COALESCE(note_id, '') as note_id,
+                               COALESCE(original_title, '') as original_title, 
+                               COALESCE(original_content, '') as original_content, 
+                               COALESCE(recreated_title, '') as recreated_title, 
+                               COALESCE(recreated_content, '') as recreated_content, 
+                               created_at
                         FROM recreate_history
                         WHERE user_id = ?
                         ORDER BY created_at DESC
@@ -95,16 +105,17 @@ class handler(BaseHTTPRequestHandler):
                 for row in rows:
                     try:
                         history = dict(zip(columns, row))
+                        # Ensure no NULL values with double protection
                         history_list.append({
-                            'id': history.get('id'),
-                            'note_id': history.get('note_id'),
-                            'note_title': history.get('original_title', ''),  # Use original_title as note title
+                            'id': history.get('id') or 0,
+                            'note_id': history.get('note_id') or '',
+                            'note_title': history.get('original_title') or '',  # Use original_title as note title
                             'original_url': '',  # Not available without note join
-                            'original_title': history.get('original_title', ''),
-                            'original_content': history.get('original_content', ''),
-                            'recreated_title': history.get('recreated_title', ''),
-                            'recreated_content': history.get('recreated_content', ''),
-                            'created_at': str(history.get('created_at', ''))
+                            'original_title': history.get('original_title') or '',
+                            'original_content': history.get('original_content') or '',
+                            'recreated_title': history.get('recreated_title') or '',
+                            'recreated_content': history.get('recreated_content') or '',
+                            'created_at': str(history.get('created_at') or '')
                         })
                     except Exception as format_error:
                         print(f"Error formatting history: {format_error}")
