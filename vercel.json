@@ -1,18 +1,12 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "api/**/*.py",
-      "use": "@vercel/python"
-    }
-  ],
+  "functions": {
+    "api/**/[!_]*.py": {}
+  },
   "routes": [
     {
       "src": "/api/(.*)",
       "dest": "/api/$1"
     }
-  ],
-  "env": {
-    "PYTHONPATH": "/var/task:/var/task/api"
-  }
+  ]
 }
