@@ -11,39 +11,53 @@ from typing import Dict, List, Optional, Any
 class DatabaseManager:
     def __init__(self):
         self.db_url = os.getenv('DATABASE_URL')
-        self.use_postgres = self.db_url and self.db_url.startswith('postgres')
+        self.use_postgres = bool(self.db_url and ('postgres' in self.db_url or 'neon' in self.db_url))
         
         if self.use_postgres:
-            import psycopg2
-            from urllib.parse import urlparse
-            
-            # 解析PostgreSQL URL
-            url = urlparse(self.db_url)
-            self.pg_config = {
-                'host': url.hostname,
-                'port': url.port or 5432,
-                'database': url.path[1:],
-                'user': url.username,
-                'password': url.password
-            }
+            try:
+                import psycopg2
+                from urllib.parse import urlparse
+                
+                # 处理Neon/PostgreSQL URL
+                if '?' in self.db_url:
+                    base_url = self.db_url.split('?')[0]
+                else:
+                    base_url = self.db_url
+                
+                url = urlparse(base_url)
+                self.pg_config = {
+                    'host': url.hostname,
+                    'port': url.port or 5432,
+                    'database': url.path[1:] if url.path else 'main',
+                    'user': url.username,
+                    'password': url.password,
+                    'sslmode': 'require'
+                }
+                print(f"[DB] Using PostgreSQL/Neon database: {url.hostname}")
+            except ImportError as e:
+                print(f"[DB] psycopg2 not available: {e}")
+                raise
         else:
-            # 开发环境使用SQLite - 强制使用固定的项目目录路径
-            # Vercel每个函数都有独立的临时目录，所以需要使用固定路径
-            project_root = r'C:\Users\sr9rfx\.claude\xiaohongshuarticleextrator'
-            self.db_path = os.path.join(project_root, 'xiaohongshu_notes.db')
-            print(f"[DB] Using fixed database path: {self.db_path}")
+            # 开发环境使用SQLite
+            if os.getenv('VERCEL'):
+                # Vercel环境使用临时目录
+                self.db_path = '/tmp/xiaohongshu_notes.db'
+            else:
+                # 本地开发环境
+                project_root = r'C:\Users\sr9rfx\.claude\xiaohongshuarticleextrator'
+                self.db_path = os.path.join(project_root, 'xiaohongshu_notes.db')
+            print(f"[DB] Using SQLite database path: {self.db_path}")
     
     def get_connection(self):
         """获取数据库连接"""
         if self.use_postgres:
             try:
                 import psycopg2
-                return psycopg2.connect(**self.pg_config)
-            except ImportError:
-                import psycopg2
-                return psycopg2.connect(**self.pg_config)
+                conn = psycopg2.connect(**self.pg_config)
+                return conn
             except Exception as e:
                 print(f"PostgreSQL连接失败: {e}")
+                print(f"连接配置: {self.pg_config}")
                 raise
         else:
             return sqlite3.connect(self.db_path)

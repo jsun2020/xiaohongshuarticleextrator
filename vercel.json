@@ -1,1 +1,10 @@
-{}
+{
+  "functions": {
+    "api/**/*.py": {
+      "runtime": "python3.9"
+    }
+  },
+  "env": {
+    "PYTHON_PATH": ".:/var/task:/var/task/api"
+  }
+}
