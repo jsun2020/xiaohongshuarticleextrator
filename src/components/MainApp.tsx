@@ -27,11 +27,7 @@ export default function MainApp({ user }: MainAppProps) {
   const [showConfig, setShowConfig] = useState(false)
   const router = useRouter()
 
-  console.log('[DEBUG] MainApp active tab:', activeTab)
-  console.log('[DEBUG] MainApp render at:', new Date().toLocaleTimeString())
-
   const handleTabChange = (value: string) => {
-    console.log('[DEBUG] Tab changing from', activeTab, 'to', value)
     setActiveTab(value)
   }
 

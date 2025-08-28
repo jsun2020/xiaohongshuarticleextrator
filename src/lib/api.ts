@@ -36,11 +36,9 @@ api.interceptors.request.use(
   (config) => {
     // 不发送Authorization header，让backend使用cookies认证
     // withCredentials: true 确保cookies被发送（包括HttpOnly的session_token）
-    console.log('[DEBUG] Axios request config:', config.url, config.method)
     return config
   },
   (error) => {
-    console.log('[DEBUG] Axios request error:', error)
     return Promise.reject(error)
   }
 )
@@ -48,11 +46,9 @@ api.interceptors.request.use(
 // 响应拦截器
 api.interceptors.response.use(
   (response) => {
-    console.log('[DEBUG] Axios response success:', response.status, response.config.url)
     return response
   },
   (error) => {
-    console.log('[DEBUG] Axios response error:', error.response?.status, error.config?.url, error.message)
     if (error.response?.status === 401) {
       // 未授权，跳转到登录页
       window.location.href = '/login'
