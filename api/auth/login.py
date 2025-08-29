@@ -43,38 +43,44 @@ def verify_password(password, stored_hash):
     except:
         return False
 
-from http.server import BaseHTTPRequestHandler
 import json
 
-class handler(BaseHTTPRequestHandler):
-    def do_POST(self):
-        """处理POST请求"""
+def handler(request):
+    """Vercel serverless function handler"""
+    
+    # Handle CORS preflight
+    if request.method == 'OPTIONS':
+        return {
+            'statusCode': 200,
+            'headers': {
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type, Authorization, Cookie'
+            }
+        }
+    
+    if request.method == 'POST':
         # 初始化数据库
         db.init_database()
         
         try:
             # 读取请求体
-            content_length = int(self.headers['Content-Length'])
-            post_data = self.rfile.read(content_length)
-            data = json.loads(post_data.decode('utf-8'))
+            data = json.loads(request.body)
             
             username = data.get('username', '').strip()
             password = data.get('password', '')
             
             if not username or not password:
-                self.send_error_response({'success': False, 'error': '用户名和密码不能为空'}, 400)
-                return
+                return send_error_response({'success': False, 'error': '用户名和密码不能为空'}, 400)
             
             # 查找用户
             user = db.get_user_by_username(username)
             if not user:
-                self.send_error_response({'success': False, 'error': '用户名或密码错误'}, 401)
-                return
+                return send_error_response({'success': False, 'error': '用户名或密码错误'}, 401)
             
             # 验证密码
             if not verify_password(password, user['password_hash']):
-                self.send_error_response({'success': False, 'error': '用户名或密码错误'}, 401)
-                return
+                return send_error_response({'success': False, 'error': '用户名或密码错误'}, 401)
             
             # 生成会话ID和JWT token
             session_id = secrets.token_hex(32)
@@ -88,7 +94,7 @@ class handler(BaseHTTPRequestHandler):
                 token = session_id
             
             # 发送成功响应
-            self.send_success_response({
+            return send_success_response({
                 'success': True,
                 'message': '登录成功',
                 'token': token,  # 添加token到响应体
@@ -101,42 +107,41 @@ class handler(BaseHTTPRequestHandler):
             }, session_id, user['id'], token)
             
         except Exception as e:
-            self.send_error_response({'success': False, 'error': f'登录失败: {str(e)}'}, 500)
+            return send_error_response({'success': False, 'error': f'登录失败: {str(e)}'}, 500)
     
-    def send_success_response(self, data, session_id, user_id, token):
-        """发送成功响应"""
-        self.send_response(200)
-        self.send_header('Content-Type', 'application/json')
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-        
-        # 设置Cookie - 在开发环境中不使用Secure标志
-        is_dev = os.environ.get('NODE_ENV', 'development') == 'development' or 'localhost' in self.headers.get('host', '')
-        secure_flag = '' if is_dev else '; Secure'
-        
-        self.send_header('Set-Cookie', f'session_id={session_id}; Path=/; HttpOnly{secure_flag}; SameSite=Lax; Max-Age={86400 * 7}')
-        self.send_header('Set-Cookie', f'session_token={token}; Path=/; HttpOnly{secure_flag}; SameSite=Lax; Max-Age={86400 * 7}')
-        self.send_header('Set-Cookie', f'user_id={user_id}; Path=/; HttpOnly{secure_flag}; SameSite=Lax; Max-Age={86400 * 7}')
-        self.send_header('Set-Cookie', f'logged_in=true; Path=/{secure_flag}; SameSite=Lax; Max-Age={86400 * 7}')
-        
-        self.end_headers()
-        self.wfile.write(json.dumps(data, ensure_ascii=False).encode('utf-8'))
+    return send_error_response({'error': 'Method not allowed'}, 405)
+
+def send_success_response(data, session_id, user_id, token):
+    """发送成功响应"""
+    # 设置Cookie - 在生产环境中使用Secure标志
+    secure_flag = '; Secure'
     
-    def send_error_response(self, data, status_code):
-        """发送错误响应"""
-        self.send_response(status_code)
-        self.send_header('Content-Type', 'application/json')
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-        self.end_headers()
-        self.wfile.write(json.dumps(data, ensure_ascii=False).encode('utf-8'))
-    
-    def do_OPTIONS(self):
-        """处理OPTIONS请求"""
-        self.send_response(200)
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-        self.end_headers()
+    return {
+        'statusCode': 200,
+        'headers': {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization, Cookie',
+            'Set-Cookie': [
+                f'session_id={session_id}; Path=/; HttpOnly{secure_flag}; SameSite=Lax; Max-Age={86400 * 7}',
+                f'session_token={token}; Path=/; HttpOnly{secure_flag}; SameSite=Lax; Max-Age={86400 * 7}',
+                f'user_id={user_id}; Path=/; HttpOnly{secure_flag}; SameSite=Lax; Max-Age={86400 * 7}',
+                f'logged_in=true; Path=/{secure_flag}; SameSite=Lax; Max-Age={86400 * 7}'
+            ]
+        },
+        'body': json.dumps(data, ensure_ascii=False)
+    }
+
+def send_error_response(data, status_code):
+    """发送错误响应"""
+    return {
+        'statusCode': status_code,
+        'headers': {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization, Cookie'
+        },
+        'body': json.dumps(data, ensure_ascii=False)
+    }

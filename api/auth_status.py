@@ -1,5 +1,5 @@
 """
-检查登录状态API - Vercel Serverless函数 (扁平化版本)
+检查登录状态API - Vercel Serverless函数
 """
 import sys
 import os
@@ -7,16 +7,27 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from _utils import parse_request, create_response, require_auth
 from _database import db
-from http.server import BaseHTTPRequestHandler
 import json
 
-class handler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        """检查用户登录状态"""
+def handler(request):
+    """Vercel serverless function handler"""
+    
+    # Handle CORS preflight
+    if request.method == 'OPTIONS':
+        return {
+            'statusCode': 200,
+            'headers': {
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type, Authorization, Cookie'
+            }
+        }
+    
+    if request.method == 'GET':
         try:
             # 解析Cookie
             cookies = {}
-            cookie_header = self.headers.get('Cookie', '')
+            cookie_header = request.headers.get('cookie', '')
             if cookie_header:
                 for item in cookie_header.split(';'):
                     if '=' in item:
@@ -27,49 +38,66 @@ class handler(BaseHTTPRequestHandler):
             req_data = {
                 'method': 'GET',
                 'cookies': cookies,
-                'headers': dict(self.headers)
+                'headers': dict(request.headers)
             }
             
             user_id = require_auth(req_data)
             
             if not user_id:
-                self.send_json_response({
-                    'logged_in': False,
-                    'user': None
-                }, 200)
-                return
+                return {
+                    'statusCode': 200,
+                    'headers': {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*',
+                        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+                        'Access-Control-Allow-Headers': 'Content-Type, Authorization, Cookie'
+                    },
+                    'body': json.dumps({
+                        'logged_in': False,
+                        'user': None
+                    }, ensure_ascii=False)
+                }
             
             # 获取用户信息 (简化版本)
-            self.send_json_response({
-                'logged_in': True,
-                'user': {
-                    'id': user_id,
-                    'username': cookies.get('username', ''),
-                    'nickname': cookies.get('nickname', '')
-                }
-            }, 200)
+            return {
+                'statusCode': 200,
+                'headers': {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+                    'Access-Control-Allow-Headers': 'Content-Type, Authorization, Cookie'
+                },
+                'body': json.dumps({
+                    'logged_in': True,
+                    'user': {
+                        'id': user_id,
+                        'username': cookies.get('username', ''),
+                        'nickname': cookies.get('nickname', '')
+                    }
+                }, ensure_ascii=False)
+            }
             
         except Exception as e:
-            self.send_json_response({
-                'logged_in': False,
-                'user': None,
-                'error': str(e)
-            }, 200)
+            return {
+                'statusCode': 200,
+                'headers': {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+                    'Access-Control-Allow-Headers': 'Content-Type, Authorization, Cookie'
+                },
+                'body': json.dumps({
+                    'logged_in': False,
+                    'user': None,
+                    'error': str(e)
+                }, ensure_ascii=False)
+            }
     
-    def send_json_response(self, data, status_code):
-        """发送JSON响应"""
-        self.send_response(status_code)
-        self.send_header('Content-Type', 'application/json')
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-        self.end_headers()
-        self.wfile.write(json.dumps(data, ensure_ascii=False).encode('utf-8'))
-    
-    def do_OPTIONS(self):
-        """处理OPTIONS请求"""
-        self.send_response(200)
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-        self.end_headers()
+    return {
+        'statusCode': 405,
+        'headers': {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*'
+        },
+        'body': json.dumps({'error': 'Method not allowed'})
+    }

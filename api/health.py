@@ -7,19 +7,30 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from _utils import parse_request, create_response, require_auth
 from _database import db
-from http.server import BaseHTTPRequestHandler
 import json
 
-class handler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        """处理GET请求"""
+def handler(request):
+    """Vercel serverless function handler"""
+    
+    # Handle CORS preflight
+    if request.method == 'OPTIONS':
+        return {
+            'statusCode': 200,
+            'headers': {
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type, Authorization, Cookie'
+            }
+        }
+    
+    if request.method == 'GET':
         # 初始化数据库
         db.init_database()
         
         try:
             # 解析Cookie进行认证
             cookies = {}
-            cookie_header = self.headers.get('Cookie', '')
+            cookie_header = request.headers.get('cookie', '')
             if cookie_header:
                 for item in cookie_header.split(';'):
                     if '=' in item:
@@ -30,7 +41,7 @@ class handler(BaseHTTPRequestHandler):
                 'method': 'GET',
                 'query': {},
                 'cookies': cookies,
-                'headers': dict(self.headers)
+                'headers': dict(request.headers)
             }
             
             # 检查用户登录状态
@@ -54,37 +65,46 @@ class handler(BaseHTTPRequestHandler):
                 except:
                     deepseek_configured = False
             
-            self.send_json_response({
-                'success': True,
-                'status': 'healthy',
-                'database_status': 'connected',
-                'total_notes': total_notes,
-                'deepseek_configured': deepseek_configured,
-                'logged_in': logged_in
-            }, 200)
+            return {
+                'statusCode': 200,
+                'headers': {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+                    'Access-Control-Allow-Headers': 'Content-Type, Authorization, Cookie'
+                },
+                'body': json.dumps({
+                    'success': True,
+                    'status': 'healthy',
+                    'database_status': 'connected',
+                    'total_notes': total_notes,
+                    'deepseek_configured': deepseek_configured,
+                    'logged_in': logged_in
+                }, ensure_ascii=False)
+            }
             
         except Exception as e:
             print(f"Health check error: {e}")
-            self.send_json_response({
-                'success': False,
-                'status': 'error',
-                'error': str(e)
-            }, 500)
+            return {
+                'statusCode': 500,
+                'headers': {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+                    'Access-Control-Allow-Headers': 'Content-Type, Authorization, Cookie'
+                },
+                'body': json.dumps({
+                    'success': False,
+                    'status': 'error',
+                    'error': str(e)
+                }, ensure_ascii=False)
+            }
     
-    def send_json_response(self, data, status_code):
-        """发送JSON响应"""
-        self.send_response(status_code)
-        self.send_header('Content-Type', 'application/json')
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-        self.end_headers()
-        self.wfile.write(json.dumps(data, ensure_ascii=False).encode('utf-8'))
-    
-    def do_OPTIONS(self):
-        """处理OPTIONS请求"""
-        self.send_response(200)
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-        self.end_headers()
+    return {
+        'statusCode': 405,
+        'headers': {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*'
+        },
+        'body': json.dumps({'error': 'Method not allowed'})
+    }
