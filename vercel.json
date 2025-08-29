@@ -1,46 +1,40 @@
 {
   "functions": {
     "api/health.py": {
-      "runtime": "python3.9",
+      "runtime": "vercel-python@1.0.0",
       "maxDuration": 10
     },
     "api/auth_status.py": {
-      "runtime": "python3.9",
+      "runtime": "vercel-python@1.0.0",
       "maxDuration": 10
     },
     "api/auth/login.py": {
-      "runtime": "python3.9",
+      "runtime": "vercel-python@1.0.0",
       "maxDuration": 15
     },
     "api/auth/register.py": {
-      "runtime": "python3.9",
+      "runtime": "vercel-python@1.0.0",
       "maxDuration": 15
     },
     "api/auth/logout.py": {
-      "runtime": "python3.9",
+      "runtime": "vercel-python@1.0.0",
       "maxDuration": 10
     },
     "api/xiaohongshu/note.py": {
-      "runtime": "python3.9",
+      "runtime": "vercel-python@1.0.0",
       "maxDuration": 30
     },
     "api/xiaohongshu_notes_list.py": {
-      "runtime": "python3.9",
+      "runtime": "vercel-python@1.0.0",
       "maxDuration": 30
     },
     "api/xiaohongshu_recreate.py": {
-      "runtime": "python3.9",
+      "runtime": "vercel-python@1.0.0",
       "maxDuration": 60
     },
     "api/xiaohongshu_recreate_history.py": {
-      "runtime": "python3.9",
+      "runtime": "vercel-python@1.0.0",
       "maxDuration": 30
     }
-  },
-  "rewrites": [
-    {
-      "source": "/api/(.*)",
-      "destination": "/api/$1"
-    }
-  ]
+  }
 }

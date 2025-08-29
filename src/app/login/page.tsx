@@ -30,12 +30,8 @@ export default function LoginPage() {
 
   const checkAuthStatus = async () => {
     try {
-      const response = await fetch('/api/auth_status', {
-        method: 'GET',
-        credentials: 'include',
-      })
-      const data = await response.json()
-      if (data.logged_in) {
+      const response = await authAPI.getStatus()
+      if (response.data.logged_in) {
         router.push('/')
       }
     } catch (error) {
