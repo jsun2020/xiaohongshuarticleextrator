@@ -1,40 +1,63 @@
 {
-  "functions": {
-    "api/health.py": {
-      "runtime": "vercel-python@1.0.0",
-      "maxDuration": 10
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/next"
     },
-    "api/auth_status.py": {
-      "runtime": "vercel-python@1.0.0",
-      "maxDuration": 10
+    {
+      "src": "api/health.py",
+      "use": "@vercel/python",
+      "config": { "maxDuration": 10 }
     },
-    "api/auth/login.py": {
-      "runtime": "vercel-python@1.0.0",
-      "maxDuration": 15
+    {
+      "src": "api/auth_status.py",
+      "use": "@vercel/python",
+      "config": { "maxDuration": 10 }
     },
-    "api/auth/register.py": {
-      "runtime": "vercel-python@1.0.0",
-      "maxDuration": 15
+    {
+      "src": "api/auth/login.py",
+      "use": "@vercel/python",
+      "config": { "maxDuration": 15 }
     },
-    "api/auth/logout.py": {
-      "runtime": "vercel-python@1.0.0",
-      "maxDuration": 10
+    {
+      "src": "api/auth/register.py",
+      "use": "@vercel/python",
+      "config": { "maxDuration": 15 }
     },
-    "api/xiaohongshu/note.py": {
-      "runtime": "vercel-python@1.0.0",
-      "maxDuration": 30
+    {
+      "src": "api/auth/logout.py",
+      "use": "@vercel/python",
+      "config": { "maxDuration": 10 }
     },
-    "api/xiaohongshu_notes_list.py": {
-      "runtime": "vercel-python@1.0.0",
-      "maxDuration": 30
+    {
+      "src": "api/xiaohongshu/note.py",
+      "use": "@vercel/python",
+      "config": { "maxDuration": 30 }
     },
-    "api/xiaohongshu_recreate.py": {
-      "runtime": "vercel-python@1.0.0",
-      "maxDuration": 60
+    {
+      "src": "api/xiaohongshu_notes_list.py",
+      "use": "@vercel/python",
+      "config": { "maxDuration": 30 }
     },
-    "api/xiaohongshu_recreate_history.py": {
-      "runtime": "vercel-python@1.0.0",
-      "maxDuration": 30
+    {
+      "src": "api/xiaohongshu_recreate.py",
+      "use": "@vercel/python",
+      "config": { "maxDuration": 60 }
+    },
+    {
+      "src": "api/xiaohongshu_recreate_history.py",
+      "use": "@vercel/python",
+      "config": { "maxDuration": 30 }
     }
-  }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/api/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/$1"
+    }
+  ]
 }
