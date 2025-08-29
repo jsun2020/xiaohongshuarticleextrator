@@ -27,7 +27,7 @@
             
             <div class="space-y-4">
                 <button 
-                    onclick="window.location.href='/login'"
+                    onclick="navigateToLogin()"
                     class="px-8 py-3 bg-xiaohongshu-red text-white font-semibold rounded-lg hover:bg-red-600 transition-colors"
                 >
                     开始使用
@@ -52,6 +52,12 @@
                 document.getElementById('api-status').innerHTML = 
                     `<span class="text-red-600">连接失败</span>`;
             }
+        }
+        
+        // Navigate to login page
+        function navigateToLogin() {
+            // Use window.location.replace to ensure proper navigation
+            window.location.replace('/login');
         }
         
         // Check API on page load

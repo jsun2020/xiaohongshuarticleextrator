@@ -1,0 +1,58 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/**/*.py",
+      "use": "@vercel/python"
+    },
+    {
+      "src": "package.json",
+      "use": "@vercel/next"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/api/$1"
+    },
+    {
+      "handle": "filesystem"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/$1"
+    }
+  ],
+  "functions": {
+    "api/health.py": {
+      "maxDuration": 10
+    },
+    "api/auth_status.py": {
+      "maxDuration": 10
+    },
+    "api/auth/login.py": {
+      "maxDuration": 15
+    },
+    "api/auth/register.py": {
+      "maxDuration": 15
+    },
+    "api/auth/logout.py": {
+      "maxDuration": 10
+    },
+    "api/xiaohongshu/note.py": {
+      "maxDuration": 30
+    },
+    "api/xiaohongshu_notes_list.py": {
+      "maxDuration": 30
+    },
+    "api/xiaohongshu_recreate.py": {
+      "maxDuration": 60
+    },
+    "api/xiaohongshu_recreate_history.py": {
+      "maxDuration": 30
+    }
+  },
+  "env": {
+    "PYTHONPATH": "./"
+  }
+}

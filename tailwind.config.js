@@ -50,11 +50,9 @@ module.exports = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        xiaohongshu: {
-          red: '#ff2442',
-          pink: '#ff6b9d',
-          orange: '#ff8c42'
-        }
+        'xiaohongshu-red': '#ff2442',
+        'xiaohongshu-pink': '#ff6b9d',
+        'xiaohongshu-orange': '#ff8c42'
       },
       borderRadius: {
         lg: "var(--radius)",
