@@ -26,7 +26,7 @@ export default function HomePage() {
   const checkAuthStatus = async () => {
     try {
       console.log('Checking auth status...')
-      const response = await fetch('/api/auth/status', {
+      const response = await fetch('/api/auth_status', {
         method: 'GET',
         credentials: 'include',
         headers: {

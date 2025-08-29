@@ -73,7 +73,7 @@ export const authAPI = {
   },
   
   getStatus: () =>
-    api.get('/auth/status'),
+    api.get('/auth_status'),
   
   register: (username: string, password: string, email?: string, nickname?: string) =>
     api.post('/auth/register', { username, password, email, nickname }),
