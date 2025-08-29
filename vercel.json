@@ -1,7 +1,10 @@
 {
   "functions": {
-    "api/**/[!_]*.py": {
-      "runtime": "@vercel/python"
+    "api/*.py": {
+      "runtime": "python3.12"
+    },
+    "api/**/*.py": {
+      "runtime": "python3.12"
     }
   }
 }
