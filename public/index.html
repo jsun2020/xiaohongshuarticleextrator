@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小红书数据研究院</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'xiaohongshu-red': '#FF2D72',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gradient-to-br from-pink-50 to-orange-50 min-h-screen">
+    <div class="min-h-screen flex items-center justify-center">
+        <div class="text-center">
+            <div class="mb-8">
+                <h1 class="text-4xl font-bold text-xiaohongshu-red mb-4">小红书数据研究院</h1>
+                <p class="text-gray-600 text-lg">笔记数据采集、二创和管理系统</p>
+            </div>
+            
+            <div class="space-y-4">
+                <button 
+                    onclick="window.location.href='/login'"
+                    class="px-8 py-3 bg-xiaohongshu-red text-white font-semibold rounded-lg hover:bg-red-600 transition-colors"
+                >
+                    开始使用
+                </button>
+                
+                <div class="text-sm text-gray-500">
+                    <p>✅ API 状态: <span id="api-status">检查中...</span></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Check API status
+        async function checkAPI() {
+            try {
+                const response = await fetch('/api/health');
+                const data = await response.json();
+                document.getElementById('api-status').innerHTML = 
+                    `<span class="text-green-600">正常运行</span>`;
+            } catch (error) {
+                document.getElementById('api-status').innerHTML = 
+                    `<span class="text-red-600">连接失败</span>`;
+            }
+        }
+        
+        // Check API on page load
+        checkAPI();
+    </script>
+</body>
+</html>
