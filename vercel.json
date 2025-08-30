@@ -1,8 +1,0 @@
-{
-  "buildCommand": "npm run build",
-  "functions": {
-    "api/xiaohongshu_recreate.py": {
-      "maxDuration": 60
-    }
-  }
-}
