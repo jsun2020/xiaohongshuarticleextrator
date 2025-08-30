@@ -1,37 +1,23 @@
 import json
+from http.server import BaseHTTPRequestHandler
 
-def handler(request):
-    """Simple test endpoint to verify Vercel deployment"""
-    
-    if request.method == 'OPTIONS':
-        return {
-            'statusCode': 200,
-            'headers': {
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-                'Access-Control-Allow-Headers': 'Content-Type, Authorization'
-            }
+class handler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json')
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.end_headers()
+        
+        response = {
+            'status': 'Success',
+            'message': 'Simple test endpoint working!',
+            'method': 'GET'
         }
+        self.wfile.write(json.dumps(response).encode('utf-8'))
     
-    if request.method == 'GET':
-        return {
-            'statusCode': 200,
-            'headers': {
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*'
-            },
-            'body': json.dumps({
-                'status': 'Success',
-                'message': 'Simple test endpoint working!',
-                'method': request.method
-            })
-        }
-    
-    return {
-        'statusCode': 405,
-        'headers': {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*'
-        },
-        'body': json.dumps({'error': 'Method not allowed'})
-    }
+    def do_OPTIONS(self):
+        self.send_response(200)
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+        self.end_headers()

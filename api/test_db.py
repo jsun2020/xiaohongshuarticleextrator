@@ -2,36 +2,18 @@
 import os
 import json
 import psycopg2  # 确保这个包在 requirements.txt 中
+from http.server import BaseHTTPRequestHandler
 
-def handler(request):
-    """Vercel serverless function handler"""
-    
-    # Handle CORS preflight
-    if request.method == 'OPTIONS':
-        return {
-            'statusCode': 200,
-            'headers': {
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-                'Access-Control-Allow-Headers': 'Content-Type, Authorization'
-            }
-        }
-    
-    if request.method == 'GET':
+class handler(BaseHTTPRequestHandler):
+    def do_GET(self):
         db_url = os.environ.get("DATABASE_URL")
         
         if not db_url:
-            return {
-                'statusCode': 500,
-                'headers': {
-                    'Content-Type': 'application/json',
-                    'Access-Control-Allow-Origin': '*'
-                },
-                'body': json.dumps({
-                    "status": "Error",
-                    "message": "DATABASE_URL environment variable is not set."
-                })
-            }
+            self.send_response_and_data({
+                "status": "Error",
+                "message": "DATABASE_URL environment variable is not set."
+            }, 500)
+            return
 
         try:
             # 尝试连接数据库
@@ -50,40 +32,31 @@ def handler(request):
             cur.close()
             conn.close()
             
-            return {
-                'statusCode': 200,
-                'headers': {
-                    'Content-Type': 'application/json',
-                    'Access-Control-Allow-Origin': '*'
-                },
-                'body': json.dumps({
-                    "status": "Success",
-                    "message": "Database connection successful!",
-                    "db_version": db_version[0]
-                })
-            }
+            self.send_response_and_data({
+                "status": "Success",
+                "message": "Database connection successful!",
+                "db_version": db_version[0]
+            }, 200)
 
         except Exception as e:
             # 如果连接失败，返回详细的错误信息
-            return {
-                'statusCode': 500,
-                'headers': {
-                    'Content-Type': 'application/json',
-                    'Access-Control-Allow-Origin': '*'
-                },
-                'body': json.dumps({
-                    "status": "Error",
-                    "message": "Failed to connect to the database.",
-                    "error_type": type(e).__name__,
-                    "error_details": str(e)
-                })
-            }
+            self.send_response_and_data({
+                "status": "Error",
+                "message": "Failed to connect to the database.",
+                "error_type": type(e).__name__,
+                "error_details": str(e)
+            }, 500)
     
-    return {
-        'statusCode': 405,
-        'headers': {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*'
-        },
-        'body': json.dumps({'error': 'Method not allowed'})
-    }
+    def do_OPTIONS(self):
+        self.send_response(200)
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+        self.end_headers()
+    
+    def send_response_and_data(self, data, status_code):
+        self.send_response(status_code)
+        self.send_header('Content-Type', 'application/json')
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.end_headers()
+        self.wfile.write(json.dumps(data).encode('utf-8'))
