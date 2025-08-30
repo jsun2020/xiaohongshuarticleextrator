@@ -15,6 +15,10 @@
       "config": { "maxDuration": 10 }
     },
     {
+      "src": "api/test_db.py",
+      "use": "@vercel/python"
+    },
+    {
       "src": "api/auth/login.py",
       "use": "@vercel/python",
       "config": { "maxDuration": 15 }
