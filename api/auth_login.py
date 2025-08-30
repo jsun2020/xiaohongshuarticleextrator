@@ -96,10 +96,19 @@ class handler(BaseHTTPRequestHandler):
         self.send_header('Access-Control-Allow-Origin', '*')
         self.send_header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Cookie')
-        self.send_header('Set-Cookie', f'session_id={session_id}; Path=/; HttpOnly{secure_flag}; SameSite=Lax; Max-Age={86400 * 7}')
-        self.send_header('Set-Cookie', f'session_token={token}; Path=/; HttpOnly{secure_flag}; SameSite=Lax; Max-Age={86400 * 7}')
-        self.send_header('Set-Cookie', f'user_id={user_id}; Path=/; HttpOnly{secure_flag}; SameSite=Lax; Max-Age={86400 * 7}')
-        self.send_header('Set-Cookie', f'logged_in=true; Path=/{secure_flag}; SameSite=Lax; Max-Age={86400 * 7}')
+        
+        # Set multiple cookies by calling send_header multiple times with different values
+        cookies = [
+            f'session_id={session_id}; Path=/; HttpOnly{secure_flag}; SameSite=Lax; Max-Age={86400 * 7}',
+            f'session_token={token}; Path=/; HttpOnly{secure_flag}; SameSite=Lax; Max-Age={86400 * 7}',
+            f'user_id={user_id}; Path=/; HttpOnly{secure_flag}; SameSite=Lax; Max-Age={86400 * 7}',
+            f'logged_in=true; Path=/{secure_flag}; SameSite=Lax; Max-Age={86400 * 7}'
+        ]
+        
+        # Add each cookie as a separate header
+        for cookie in cookies:
+            self.send_header('Set-Cookie', cookie)
+            
         self.end_headers()
         self.wfile.write(json.dumps(data, ensure_ascii=False).encode('utf-8'))
 
