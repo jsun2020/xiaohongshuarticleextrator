@@ -59,10 +59,17 @@ export default function HomePage() {
           </div>
           <p className="text-green-600 mb-4">✅ 登录成功</p>
           <button 
-            onClick={() => {
-              // Clear auth and redirect to login
-              localStorage.removeItem('session_token')
-              router.push('/login')
+            onClick={async () => {
+              try {
+                await authAPI.logout()
+                // Force reload to clear any cached state
+                window.location.href = '/login'
+              } catch (error) {
+                console.error('Logout error:', error)
+                // Fallback: force redirect anyway
+                localStorage.removeItem('session_token')
+                window.location.href = '/login'
+              }
             }}
             className="px-6 py-2 bg-xiaohongshu-red text-white rounded-lg hover:bg-red-600"
           >

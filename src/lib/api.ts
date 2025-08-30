@@ -67,9 +67,15 @@ export const authAPI = {
     return response
   },
   
-  logout: () => {
-    removeToken()
-    return Promise.resolve({ data: { success: true, message: '登出成功' } })
+  logout: async () => {
+    try {
+      const response = await api.post('/auth_logout', {})
+      removeToken()
+      return response
+    } catch (error) {
+      removeToken()
+      return { data: { success: true, message: '登出成功' } }
+    }
   },
   
   getStatus: () =>
