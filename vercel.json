@@ -19,6 +19,10 @@
       "use": "@vercel/python"
     },
     {
+      "src": "api/simple_test.py",
+      "use": "@vercel/python"
+    },
+    {
       "src": "api/auth/login.py",
       "use": "@vercel/python",
       "config": { "maxDuration": 15 }
