@@ -60,7 +60,7 @@ api.interceptors.response.use(
 // 认证相关API
 export const authAPI = {
   login: async (username: string, password: string) => {
-    const response = await api.post('/auth/login', { username, password })
+    const response = await api.post('/auth_login', { username, password })
     if (response.data.success && response.data.token) {
       setToken(response.data.token)
     }
@@ -76,7 +76,7 @@ export const authAPI = {
     api.get('/auth_status'),
   
   register: (username: string, password: string, email?: string, nickname?: string) =>
-    api.post('/auth/register', { username, password, email, nickname }),
+    api.post('/auth_register', { username, password, email, nickname }),
 }
 
 // 笔记相关API
