@@ -1,5 +1,6 @@
 'use client'
 
+// Fixed API endpoints - trigger rebuild
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 
