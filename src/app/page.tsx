@@ -3,9 +3,18 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { authAPI } from '@/lib/api'
+import MainApp from '@/components/MainApp'
+
+interface User {
+  id: number
+  username: string
+  nickname: string
+  email: string
+}
 
 export default function HomePage() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
+  const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const router = useRouter()
 
@@ -16,9 +25,9 @@ export default function HomePage() {
   const checkAuthStatus = async () => {
     try {
       const response = await authAPI.getStatus()
-      if (response.data.logged_in) {
+      if (response.data.logged_in && response.data.user) {
         setIsAuthenticated(true)
-        // User is authenticated, load the main app
+        setUser(response.data.user)
       } else {
         setIsAuthenticated(false)
         // User is not authenticated, redirect to login
@@ -48,36 +57,9 @@ export default function HomePage() {
     )
   }
 
-  if (isAuthenticated) {
-    // User is authenticated, show main dashboard or import the main app component
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-pink-50 to-orange-50">
-        <div className="text-center">
-          <div className="mb-8">
-            <h1 className="text-4xl font-bold text-xiaohongshu-red mb-4">小红书数据研究院</h1>
-            <p className="text-gray-600 text-lg">笔记数据采集、二创和管理系统</p>
-          </div>
-          <p className="text-green-600 mb-4">✅ 登录成功</p>
-          <button 
-            onClick={async () => {
-              try {
-                await authAPI.logout()
-                // Force reload to clear any cached state
-                window.location.href = '/login'
-              } catch (error) {
-                console.error('Logout error:', error)
-                // Fallback: force redirect anyway
-                localStorage.removeItem('session_token')
-                window.location.href = '/login'
-              }
-            }}
-            className="px-6 py-2 bg-xiaohongshu-red text-white rounded-lg hover:bg-red-600"
-          >
-            退出登录
-          </button>
-        </div>
-      </div>
-    )
+  if (isAuthenticated && user) {
+    // User is authenticated, show the main application
+    return <MainApp user={user} />
   }
 
   // This should not be reached as we redirect on !isAuthenticated

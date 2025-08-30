@@ -47,13 +47,26 @@ class handler(BaseHTTPRequestHandler):
                 }, 200)
                 return
             
-            # 获取用户信息 (简化版本)
+            # 初始化数据库并获取完整用户信息
+            db.init_database()
+            user_data = db.get_user_by_id(user_id)
+            
+            if not user_data:
+                # User ID is valid but user no longer exists in DB
+                self.send_json_response({
+                    'logged_in': False,
+                    'user': None
+                }, 200)
+                return
+            
+            # 返回完整用户信息
             self.send_json_response({
                 'logged_in': True,
                 'user': {
-                    'id': user_id,
-                    'username': cookies.get('username', ''),
-                    'nickname': cookies.get('nickname', '')
+                    'id': user_data['id'],
+                    'username': user_data['username'],
+                    'nickname': user_data['nickname'] or user_data['username'],
+                    'email': user_data['email'] or ''
                 }
             }, 200)
             

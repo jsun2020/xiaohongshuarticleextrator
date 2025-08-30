@@ -278,6 +278,29 @@ class DatabaseManager:
         finally:
             conn.close()
     
+    def get_user_by_id(self, user_id: int) -> Optional[Dict]:
+        """根据用户ID获取用户"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            if self.use_postgres:
+                cursor.execute('SELECT * FROM users WHERE id = %s', (user_id,))
+            else:
+                cursor.execute('SELECT * FROM users WHERE id = ?', (user_id,))
+            
+            row = cursor.fetchone()
+            if row:
+                columns = [desc[0] for desc in cursor.description]
+                return dict(zip(columns, row))
+            return None
+            
+        except Exception as e:
+            print(f"获取用户失败: {e}")
+            return None
+        finally:
+            conn.close()
+    
     def save_note(self, note_data: Dict, user_id: int) -> bool:
         """保存笔记"""
         conn = self.get_connection()
