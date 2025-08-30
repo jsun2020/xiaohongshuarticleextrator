@@ -8,24 +8,40 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from _utils import parse_request, create_response, require_auth
 from _database import db
-from http.server import BaseHTTPRequestHandler
 import json
 from urllib.parse import urlparse, parse_qs
 
-class handler(BaseHTTPRequestHandler):
-    def do_GET(self):
+def handler(request):
+    """Vercel serverless function handler"""
+    
+    # Handle CORS preflight
+    if request.method == 'OPTIONS':
+        return {
+            'statusCode': 200,
+            'headers': {
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type, Authorization, Cookie'
+            }
+        }
+    
+    if request.method == 'GET':
         """处理获取笔记列表请求"""
         # 初始化数据库
         db.init_database()
         
         try:
             # 解析查询参数
-            parsed_url = urlparse(self.path)
-            query_params = parse_qs(parsed_url.query)
+            query_params = {}
+            if hasattr(request, 'url'):
+                parsed_url = urlparse(request.url)
+                query_params = parse_qs(parsed_url.query)
+            elif hasattr(request, 'query'):
+                query_params = request.query or {}
             
             # 解析Cookie进行认证
             cookies = {}
-            cookie_header = self.headers.get('Cookie', '')
+            cookie_header = request.headers.get('cookie', '') or request.headers.get('Cookie', '')
             if cookie_header:
                 for item in cookie_header.split(';'):
                     if '=' in item:
@@ -36,14 +52,20 @@ class handler(BaseHTTPRequestHandler):
                 'method': 'GET',
                 'query': query_params,
                 'cookies': cookies,
-                'headers': dict(self.headers)
+                'headers': dict(request.headers)
             }
             
             # 检查用户认证
             user_id = require_auth(req_data)
             if not user_id:
-                self.send_error_response({'success': False, 'error': '请先登录'}, 401)
-                return
+                return {
+                    'statusCode': 401,
+                    'headers': {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*'
+                    },
+                    'body': json.dumps({'success': False, 'error': '请先登录'})
+                }
             
             # 获取分页参数
             try:
@@ -100,46 +122,49 @@ class handler(BaseHTTPRequestHandler):
                     print(f"Error formatting note: {format_error}")
                     continue
             
-            self.send_json_response({
-                'success': True,
-                'data': formatted_notes,
-                'pagination': {
-                    'limit': limit,
-                    'offset': offset,
-                    'page': page,
-                    'per_page': per_page,
-                    'total': total_count
-                }
-            }, 200)
+            return {
+                'statusCode': 200,
+                'headers': {
+                    'Content-Type': 'application/json',
+                    'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
+                    'Pragma': 'no-cache',
+                    'Expires': '0',
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+                    'Access-Control-Allow-Headers': 'Content-Type, Authorization, Cookie'
+                },
+                'body': json.dumps({
+                    'success': True,
+                    'data': formatted_notes,
+                    'pagination': {
+                        'limit': limit,
+                        'offset': offset,
+                        'page': page,
+                        'per_page': per_page,
+                        'total': total_count
+                    }
+                }, ensure_ascii=False)
+            }
             
         except Exception as e:
             print(f"Error in notes API: {e}")
-            self.send_error_response({
-                'success': False,
-                'error': f'获取笔记列表失败: {str(e)}'
-            }, 500)
+            return {
+                'statusCode': 500,
+                'headers': {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*'
+                },
+                'body': json.dumps({
+                    'success': False,
+                    'error': f'获取笔记列表失败: {str(e)}'
+                })
+            }
     
-    def send_json_response(self, data, status_code):
-        """发送JSON响应"""
-        self.send_response(status_code)
-        self.send_header('Content-Type', 'application/json')
-        self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0')
-        self.send_header('Pragma', 'no-cache')
-        self.send_header('Expires', '0')
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-        self.end_headers()
-        self.wfile.write(json.dumps(data, ensure_ascii=False).encode('utf-8'))
-    
-    def send_error_response(self, data, status_code):
-        """发送错误响应"""
-        self.send_json_response(data, status_code)
-    
-    def do_OPTIONS(self):
-        """处理OPTIONS请求"""
-        self.send_response(200)
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-        self.end_headers()
+    return {
+        'statusCode': 405,
+        'headers': {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*'
+        },
+        'body': json.dumps({'error': 'Method not allowed'})
+    }
