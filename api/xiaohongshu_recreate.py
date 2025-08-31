@@ -11,6 +11,7 @@ import sys
 import os
 import json
 import urllib.parse
+from urllib.parse import parse_qs
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
@@ -34,12 +35,12 @@ class handler(BaseHTTPRequestHandler):
             query_params = {}
             if self.path and '?' in self.path:
                 query_string = self.path.split('?', 1)[1]
-                query_params = urllib.parse.parse_qs(query_string)
+                query_params = parse_qs(query_string)
             
             action = query_params.get('action', [''])[0]
             
             if action == 'config':
-                self.handle_get_config()
+                self.handle_get_deepseek_config()
             else:
                 # 默认返回错误
                 self.send_response(400)
@@ -69,12 +70,12 @@ class handler(BaseHTTPRequestHandler):
             query_params = {}
             if self.path and '?' in self.path:
                 query_string = self.path.split('?', 1)[1]
-                query_params = urllib.parse.parse_qs(query_string)
+                query_params = parse_qs(query_string)
             
             action = query_params.get('action', [''])[0]
             
             if action == 'config':
-                self.handle_update_config()
+                self.handle_update_deepseek_config()
             elif action == 'test':
                 self.handle_test_connection()
             else:
@@ -92,7 +93,7 @@ class handler(BaseHTTPRequestHandler):
                 'error': f'处理请求失败: {str(e)}'
             }).encode('utf-8'))
     
-    def handle_get_config(self):
+    def handle_get_deepseek_config(self):
         """处理获取DeepSeek配置"""
         try:
             # 解析Cookie进行认证
@@ -128,6 +129,7 @@ class handler(BaseHTTPRequestHandler):
             
             # 获取用户配置
             config = db.get_user_config(user_id)
+            print(f"[DeepSeek Config GET] Raw config for user {user_id}: {config}")
             
             # 返回DeepSeek相关配置
             deepseek_config = {
@@ -137,6 +139,8 @@ class handler(BaseHTTPRequestHandler):
                 'deepseek_max_tokens': config.get('deepseek_max_tokens', '1000'),
                 'deepseek_temperature': config.get('deepseek_temperature', '0.7')
             }
+            
+            print(f"[DeepSeek Config GET] Formatted config: {deepseek_config}")
             
             # 获取用户AI二创使用次数
             usage_count = db.get_user_usage(user_id, 'ai_recreate')
@@ -171,7 +175,7 @@ class handler(BaseHTTPRequestHandler):
                 'error': f'获取配置失败: {str(e)}'
             }).encode('utf-8'))
     
-    def handle_update_config(self):
+    def handle_update_deepseek_config(self):
         """处理更新DeepSeek配置"""
         try:
             # 获取请求体
@@ -217,23 +221,33 @@ class handler(BaseHTTPRequestHandler):
             # 初始化数据库
             db.init_database()
             
-            # 获取要更新的配置
-            config_updates = {}
+            # 提取并更新DeepSeek相关配置
+            success = True
+            print(f"[DeepSeek Config] Updating config for user {user_id}: {list(data.keys())}")
             
-            # 提取DeepSeek相关配置
-            if 'deepseek_api_key' in data:
-                config_updates['deepseek_api_key'] = data['deepseek_api_key']
+            # 使用set_user_config方法逐个更新配置项
+            if 'deepseek_api_key' in data and data['deepseek_api_key']:
+                result = db.set_user_config(user_id, 'deepseek_api_key', str(data['deepseek_api_key']))
+                success = success and result
+                print(f"[DeepSeek Config] Set API key: {result}")
             if 'deepseek_base_url' in data:
-                config_updates['deepseek_base_url'] = data['deepseek_base_url']
+                result = db.set_user_config(user_id, 'deepseek_base_url', str(data['deepseek_base_url']))
+                success = success and result
+                print(f"[DeepSeek Config] Set base URL: {result}")
             if 'deepseek_model' in data:
-                config_updates['deepseek_model'] = data['deepseek_model']
+                result = db.set_user_config(user_id, 'deepseek_model', str(data['deepseek_model']))
+                success = success and result
+                print(f"[DeepSeek Config] Set model: {result}")
             if 'deepseek_max_tokens' in data:
-                config_updates['deepseek_max_tokens'] = str(data['deepseek_max_tokens'])
+                result = db.set_user_config(user_id, 'deepseek_max_tokens', str(data['deepseek_max_tokens']))
+                success = success and result
+                print(f"[DeepSeek Config] Set max tokens: {result}")
             if 'deepseek_temperature' in data:
-                config_updates['deepseek_temperature'] = str(data['deepseek_temperature'])
+                result = db.set_user_config(user_id, 'deepseek_temperature', str(data['deepseek_temperature']))
+                success = success and result
+                print(f"[DeepSeek Config] Set temperature: {result}")
             
-            # 更新配置
-            success = db.update_user_config(user_id, config_updates)
+            print(f"[DeepSeek Config] Overall update success: {success}")
             
             if success:
                 self.send_response(200)
@@ -440,31 +454,33 @@ class handler(BaseHTTPRequestHandler):
                 recreated_data = recreate_result['data']
                 
                 # 保存二创历史
-                if note_id:
-                    print(f"[DB DEBUG] Saving recreate history for user {user_id}, note {note_id}")
-                    try:
-                        conn = db.get_connection()
-                        cursor = conn.cursor()
-                        
-                        if db.use_postgres:
-                            cursor.execute('''
-                                INSERT INTO recreate_history (user_id, note_id, original_title, 
-                                                            original_content, recreated_title, recreated_content)
-                                VALUES (%s, %s, %s, %s, %s, %s)
-                            ''', (user_id, note_id, title, content, 
-                                  recreated_data['new_title'], recreated_data['new_content']))
-                        else:
-                            cursor.execute('''
-                                INSERT INTO recreate_history (user_id, note_id, original_title, 
-                                                            original_content, recreated_title, recreated_content)
-                                VALUES (?, ?, ?, ?, ?, ?)
-                            ''', (user_id, note_id, title, content, 
-                                  recreated_data['new_title'], recreated_data['new_content']))
-                        
-                        conn.commit()
-                        conn.close()
-                    except Exception as e:
-                        print(f"保存二创历史失败: {e}")
+                print(f"[DB DEBUG] Attempting to save recreate history for user {user_id}, note_id: {note_id}")
+                print(f"[DB DEBUG] Recreated data keys: {list(recreated_data.keys())}")
+                
+                try:
+                    conn = db.get_connection()
+                    cursor = conn.cursor()
+                    
+                    if db.use_postgres:
+                        cursor.execute('''
+                            INSERT INTO recreate_history (user_id, note_id, original_title, 
+                                                        original_content, recreated_title, recreated_content)
+                            VALUES (%s, %s, %s, %s, %s, %s)
+                        ''', (user_id, note_id or '', title, content, 
+                              recreated_data['new_title'], recreated_data['new_content']))
+                    else:
+                        cursor.execute('''
+                            INSERT INTO recreate_history (user_id, note_id, original_title, 
+                                                        original_content, recreated_title, recreated_content)
+                            VALUES (?, ?, ?, ?, ?, ?)
+                        ''', (user_id, note_id or '', title, content, 
+                              recreated_data['new_title'], recreated_data['new_content']))
+                    
+                    conn.commit()
+                    print(f"[DB DEBUG] Successfully saved recreate history to database")
+                    conn.close()
+                except Exception as e:
+                    print(f"[DB ERROR] 保存二创历史失败: {e}")
                 
                 self.send_response(200)
                 self.send_header('Content-Type', 'application/json')
