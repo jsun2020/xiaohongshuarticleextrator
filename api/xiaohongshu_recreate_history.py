@@ -25,15 +25,34 @@ class handler(BaseHTTPRequestHandler):
     
     def do_GET(self):
         """处理二创历史请求"""
+        print(f"[FUNCTION ENTRY] ==> do_GET function called in xiaohongshu_recreate_history.py")
+        print(f"[FUNCTION ENTRY] ==> Request path: {getattr(self, 'path', 'unknown')}")
+        print(f"[FUNCTION ENTRY] ==> Request method: {getattr(self, 'command', 'unknown')}")
+        print(f"[STEP 1] Starting recreate history request handler")
+        
         try:
-            print(f"[API DEBUG] Starting recreate history request")
+            print(f"[STEP 2] Inside main try block")
+            
+            # Check imports first
+            try:
+                print(f"[STEP 3] Checking imports...")
+                print(f"[STEP 3] db object: {db}")
+                print(f"[STEP 3] require_auth function: {require_auth}")
+                print(f"[STEP 3] All imports successful")
+            except Exception as import_error:
+                print(f"[CRITICAL ERROR] Import check failed: {import_error}")
+                import traceback
+                print(f"[CRITICAL ERROR] Import traceback: {traceback.format_exc()}")
             
             # 初始化数据库
             try:
+                print(f"[STEP 4] Attempting database initialization...")
                 db.init_database()
-                print(f"[API DEBUG] Database initialized successfully")
+                print(f"[STEP 4] Database initialized successfully")
             except Exception as db_init_error:
-                print(f"[API ERROR] Database initialization failed: {db_init_error}")
+                print(f"[STEP 4 ERROR] Database initialization failed: {db_init_error}")
+                import traceback
+                print(f"[STEP 4 ERROR] DB init traceback: {traceback.format_exc()}")
                 self.send_response(500)
                 self.send_header('Content-Type', 'application/json')
                 self.send_header('Access-Control-Allow-Origin', '*')
@@ -56,38 +75,56 @@ class handler(BaseHTTPRequestHandler):
             print(f"[CRITICAL DEBUG] Recreate history - temp dir: {os.environ.get('TMPDIR', 'not set')}")
             
             # 解析查询参数
-            query_params = {}
-            if self.path and '?' in self.path:
-                query_string = self.path.split('?', 1)[1]
-                query_params = parse_qs(query_string)
-            
-            print(f"[API DEBUG] Query params: {query_params}")
+            try:
+                print(f"[STEP 5] Parsing query parameters...")
+                query_params = {}
+                if self.path and '?' in self.path:
+                    query_string = self.path.split('?', 1)[1]
+                    query_params = parse_qs(query_string)
+                print(f"[STEP 5] Query params: {query_params}")
+            except Exception as query_error:
+                print(f"[STEP 5 ERROR] Query parsing failed: {query_error}")
+                query_params = {}
             
             # 解析Cookie进行认证
-            cookies = {}
-            cookie_header = self.headers.get('Cookie', '')
-            if cookie_header:
-                for item in cookie_header.split(';'):
-                    if '=' in item:
-                        key, value = item.strip().split('=', 1)
-                        cookies[key] = urllib.parse.unquote(value)
-            
-            req_data = {
-                'method': 'GET',
-                'query': query_params,
-                'cookies': cookies,
-                'headers': dict(self.headers)
-            }
-            
-            # 检查用户认证
-            print(f"[AUTH DEBUG] Cookies in request: {list(cookies.keys())}")
-            print(f"[AUTH DEBUG] Headers: {list(self.headers.keys())}")
+            try:
+                print(f"[STEP 6] Parsing cookies...")
+                cookies = {}
+                cookie_header = self.headers.get('Cookie', '')
+                if cookie_header:
+                    for item in cookie_header.split(';'):
+                        if '=' in item:
+                            key, value = item.strip().split('=', 1)
+                            cookies[key] = urllib.parse.unquote(value)
+                print(f"[STEP 6] Cookies found: {list(cookies.keys())}")
+            except Exception as cookie_error:
+                print(f"[STEP 6 ERROR] Cookie parsing failed: {cookie_error}")
+                cookies = {}
             
             try:
+                print(f"[STEP 7] Building request data...")
+                req_data = {
+                    'method': 'GET',
+                    'query': query_params,
+                    'cookies': cookies,
+                    'headers': dict(self.headers)
+                }
+                print(f"[STEP 7] Request data built successfully")
+            except Exception as req_data_error:
+                print(f"[STEP 7 ERROR] Request data building failed: {req_data_error}")
+                import traceback
+                print(f"[STEP 7 ERROR] Traceback: {traceback.format_exc()}")
+            
+            # 检查用户认证
+            try:
+                print(f"[STEP 8] Starting authentication...")
+                print(f"[STEP 8] Calling require_auth with req_data")
                 user_id = require_auth(req_data)
-                print(f"[AUTH DEBUG] User ID from auth: {user_id}")
+                print(f"[STEP 8] User ID from auth: {user_id}")
             except Exception as auth_error:
-                print(f"[AUTH ERROR] Authentication failed: {auth_error}")
+                print(f"[STEP 8 ERROR] Authentication failed: {auth_error}")
+                import traceback
+                print(f"[STEP 8 ERROR] Auth traceback: {traceback.format_exc()}")
                 self.send_response(401)
                 self.send_header('Content-Type', 'application/json')
                 self.send_header('Access-Control-Allow-Origin', '*')
@@ -99,7 +136,7 @@ class handler(BaseHTTPRequestHandler):
                 return
             
             if not user_id:
-                print(f"[AUTH DEBUG] No user_id returned from auth")
+                print(f"[STEP 8] No user_id returned from auth")
                 self.send_response(401)
                 self.send_header('Content-Type', 'application/json')
                 self.send_header('Access-Control-Allow-Origin', '*')
@@ -112,11 +149,23 @@ class handler(BaseHTTPRequestHandler):
             
             # 获取分页参数
             try:
+                print(f"[STEP 9] Parsing pagination parameters...")
                 limit = int(query_params.get('limit', ['20'])[0])
                 offset = int(query_params.get('offset', ['0'])[0])
                 page = (offset // limit) + 1
                 per_page = limit
-            except (ValueError, IndexError):
+                print(f"[STEP 9] Pagination: limit={limit}, offset={offset}, page={page}")
+            except (ValueError, IndexError) as page_error:
+                print(f"[STEP 9 ERROR] Pagination parsing failed: {page_error}")
+                limit = 20
+                offset = 0
+                page = 1
+                per_page = 20
+                print(f"[STEP 9] Using default pagination: limit={limit}, offset={offset}")
+            except Exception as unexpected_page_error:
+                print(f"[STEP 9 CRITICAL] Unexpected pagination error: {unexpected_page_error}")
+                import traceback
+                print(f"[STEP 9 CRITICAL] Traceback: {traceback.format_exc()}")
                 limit = 20
                 offset = 0
                 page = 1
@@ -282,15 +331,22 @@ class handler(BaseHTTPRequestHandler):
                     print(f"[DB ERROR] Error closing connection: {close_error}")
                 
         except Exception as e:
-            print(f"[RECREATE HISTORY ERROR] Exception in recreate history API: {str(e)}")
+            print(f"[CRITICAL MAIN ERROR] Main exception caught in recreate history API: {str(e)}")
+            print(f"[CRITICAL MAIN ERROR] Exception type: {type(e).__name__}")
             import traceback
-            print(f"[RECREATE HISTORY ERROR] Traceback: {traceback.format_exc()}")
+            print(f"[CRITICAL MAIN ERROR] Full traceback: {traceback.format_exc()}")
             
-            self.send_response(500)
-            self.send_header('Content-Type', 'application/json')
-            self.send_header('Access-Control-Allow-Origin', '*')
-            self.end_headers()
-            self.wfile.write(json.dumps({
-                'success': False,
-                'error': f'获取二创历史失败: {str(e)}'
-            }).encode('utf-8'))
+            try:
+                self.send_response(500)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    'success': False,
+                    'error': f'获取二创历史失败: {str(e)}'
+                }).encode('utf-8'))
+                print(f"[CRITICAL MAIN ERROR] Error response sent successfully")
+            except Exception as response_error:
+                print(f"[CRITICAL MAIN ERROR] Failed to send error response: {response_error}")
+                import traceback
+                print(f"[CRITICAL MAIN ERROR] Response error traceback: {traceback.format_exc()}")
