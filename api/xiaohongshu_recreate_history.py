@@ -171,6 +171,14 @@ class handler(BaseHTTPRequestHandler):
                 page = 1
                 per_page = 20
             
+            # Check for cleanup action
+            cleanup_action = query_params.get('cleanup', [''])[0]
+            if cleanup_action == 'true':
+                print(f"[CLEANUP] Cleanup requested, executing database cleanup...")
+                return self.handle_cleanup()
+            
+            print(f"[STEP 10] Proceeding with normal history query...")
+            
             # 获取二创历史
             try:
                 conn = db.get_connection()
@@ -350,3 +358,61 @@ class handler(BaseHTTPRequestHandler):
                 print(f"[CRITICAL MAIN ERROR] Failed to send error response: {response_error}")
                 import traceback
                 print(f"[CRITICAL MAIN ERROR] Response error traceback: {traceback.format_exc()}")
+    
+    def handle_cleanup(self):
+        """Clean up corrupted recreate_history data"""
+        try:
+            print(f"[CLEANUP] Starting database cleanup...")
+            
+            # Get connection
+            conn = db.get_connection()
+            cursor = conn.cursor()
+            
+            try:
+                # Count existing records first
+                cursor.execute('SELECT COUNT(*) FROM recreate_history')
+                count_before = cursor.fetchone()[0]
+                print(f"[CLEANUP] Records before cleanup: {count_before}")
+                
+                # Delete all records
+                cursor.execute('DELETE FROM recreate_history')
+                
+                # Reset auto increment (if SQLite)
+                if not getattr(db, 'use_postgres', False):
+                    cursor.execute('DELETE FROM sqlite_sequence WHERE name="recreate_history"')
+                
+                conn.commit()
+                print(f"[CLEANUP] Successfully deleted {count_before} records")
+                
+                # Verify cleanup
+                cursor.execute('SELECT COUNT(*) FROM recreate_history')
+                count_after = cursor.fetchone()[0]
+                print(f"[CLEANUP] Records after cleanup: {count_after}")
+                
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    'success': True,
+                    'message': f'Cleaned up {count_before} corrupted records',
+                    'records_before': count_before,
+                    'records_after': count_after
+                }).encode('utf-8'))
+                
+            finally:
+                conn.close()
+                
+        except Exception as e:
+            print(f"[CLEANUP ERROR] {e}")
+            import traceback
+            print(f"[CLEANUP ERROR] Traceback: {traceback.format_exc()}")
+            
+            self.send_response(500)
+            self.send_header('Content-Type', 'application/json') 
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                'success': False,
+                'error': str(e)
+            }).encode('utf-8'))
