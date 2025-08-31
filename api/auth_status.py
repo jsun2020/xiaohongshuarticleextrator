@@ -53,9 +53,12 @@ class handler(BaseHTTPRequestHandler):
     def handle_image_proxy(self, image_url):
         """处理图片代理请求"""
         try:
+            print(f"[Image Proxy] Proxying image: {image_url}")
+            
             if not image_url:
                 self.send_response(400)
                 self.send_header('Content-Type', 'text/plain')
+                self.send_header('Access-Control-Allow-Origin', '*')
                 self.end_headers()
                 self.wfile.write(b'URL parameter is missing')
                 return
@@ -63,18 +66,25 @@ class handler(BaseHTTPRequestHandler):
             # 设置请求头，伪造 Referer 绕过防盗链
             headers = {
                 'Referer': 'https://www.xiaohongshu.com/',
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36',
-                'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8',
+                'Origin': 'https://www.xiaohongshu.com',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
                 'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'Sec-Fetch-Dest': 'image',
+                'Sec-Fetch-Mode': 'no-cors',
+                'Sec-Fetch-Site': 'cross-site',
                 'Cache-Control': 'no-cache',
                 'Pragma': 'no-cache'
             }
+            
+            print(f"[Image Proxy] Request headers: {headers}")
             
             # 创建请求
             request = urllib.request.Request(image_url, headers=headers)
             
             # 获取图片
-            with urllib.request.urlopen(request, timeout=30) as response:
+            with urllib.request.urlopen(request, timeout=20) as response:
                 if response.status == 200:
                     # 获取内容类型
                     content_type = response.headers.get('Content-Type', 'image/jpeg')
@@ -104,18 +114,24 @@ class handler(BaseHTTPRequestHandler):
                     self.wfile.write(f'Failed to fetch image: {response.status}'.encode())
         
         except urllib.error.HTTPError as e:
-            self.send_response(e.code)
+            print(f"[Image Proxy] HTTP Error {e.code}: {e.reason} for URL: {image_url}")
+            self.send_response(e.code if e.code != 403 else 200)  # Convert 403 to 200 to avoid client errors
             self.send_header('Content-Type', 'text/plain')
+            self.send_header('Access-Control-Allow-Origin', '*')
             self.end_headers()
-            self.wfile.write(f'HTTP Error: {e.code}'.encode())
+            self.wfile.write(f'HTTP Error: {e.code} - {e.reason}'.encode())
         except urllib.error.URLError as e:
+            print(f"[Image Proxy] URL Error: {str(e)} for URL: {image_url}")
             self.send_response(500)
-            self.send_header('Content-Type', 'text/plain')  
+            self.send_header('Content-Type', 'text/plain')
+            self.send_header('Access-Control-Allow-Origin', '*')
             self.end_headers()
             self.wfile.write(f'URL Error: {str(e)}'.encode())
         except Exception as e:
+            print(f"[Image Proxy] General Error: {str(e)} for URL: {image_url}")
             self.send_response(500)
             self.send_header('Content-Type', 'text/plain')
+            self.send_header('Access-Control-Allow-Origin', '*')
             self.end_headers()
             self.wfile.write(f'Error proxying image: {str(e)}'.encode())
     

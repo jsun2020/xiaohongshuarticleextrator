@@ -139,7 +139,13 @@ export const getProxiedImageUrl = (originalUrl: string): string => {
     'sns-img-qc.xhscdn.com',
     'sns-img-hw.xhscdn.com',
     'sns-avatar-qc.xhscdn.com',
-    'picasso-static.xiaohongshu.com'
+    'sns-webpic-qc.xhscdn.com',
+    'sns-webpic-bd.xhscdn.com', 
+    'sns-webpic-hw.xhscdn.com',
+    'picasso-static.xiaohongshu.com',
+    'fe-video-qc.xhscdn.com',
+    'sns-avatar-hw.xhscdn.com',
+    'sns-avatar-bd.xhscdn.com'
   ]
   
   // 检查是否是小红书域名
@@ -148,7 +154,10 @@ export const getProxiedImageUrl = (originalUrl: string): string => {
   if (isXiaohongshuImage) {
     // 使用代理URL
     const encodedUrl = encodeURIComponent(originalUrl)
-    return `/api/auth_status?proxy_url=${encodedUrl}`
+    const proxyUrl = `/api/auth_status?proxy_url=${encodedUrl}`
+    console.log(`[Image Proxy] Original: ${originalUrl}`)
+    console.log(`[Image Proxy] Proxied: ${proxyUrl}`)
+    return proxyUrl
   }
   
   return originalUrl
