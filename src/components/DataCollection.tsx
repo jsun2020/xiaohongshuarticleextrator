@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { notesAPI } from '@/lib/api'
+import { notesAPI, getProxiedImageUrl } from '@/lib/api'
 import { isValidXhsUrl } from '@/lib/utils'
 import { Loader2, Link, CheckCircle, AlertCircle, Copy } from 'lucide-react'
 
@@ -171,7 +171,7 @@ export default function DataCollection() {
                   <div className="flex items-center space-x-2 mt-1">
                     {result.data?.author?.avatar && (
                       <img
-                        src={result.data.author.avatar}
+                        src={getProxiedImageUrl(result.data.author.avatar)}
                         alt="头像"
                         className="w-6 h-6 rounded-full"
                       />
@@ -265,7 +265,7 @@ export default function DataCollection() {
                   {result.data.images.slice(0, 8).map((image: string, index: number) => (
                     <img
                       key={index}
-                      src={String(image)}
+                      src={getProxiedImageUrl(String(image))}
                       alt={`图片${index + 1}`}
                       className="w-full h-20 object-cover rounded border"
                     />

@@ -127,6 +127,33 @@ export const healthAPI = {
     api.get('/health'),
 }
 
+// 图片代理工具函数
+export const getProxiedImageUrl = (originalUrl: string): string => {
+  // 检查是否是小红书图片URL
+  if (!originalUrl || typeof originalUrl !== 'string') return originalUrl
+  
+  // 小红书图片域名列表
+  const xiaohongshuDomains = [
+    'ci.xiaohongshu.com',
+    'sns-img-bd.xhscdn.com',
+    'sns-img-qc.xhscdn.com',
+    'sns-img-hw.xhscdn.com',
+    'sns-avatar-qc.xhscdn.com',
+    'picasso-static.xiaohongshu.com'
+  ]
+  
+  // 检查是否是小红书域名
+  const isXiaohongshuImage = xiaohongshuDomains.some(domain => originalUrl.includes(domain))
+  
+  if (isXiaohongshuImage) {
+    // 使用代理URL
+    const encodedUrl = encodeURIComponent(originalUrl)
+    return `/api/auth_status?proxy_url=${encodedUrl}`
+  }
+  
+  return originalUrl
+}
+
 export default api
 // 导出token管理函数
 export { getToken, setToken, removeToken }

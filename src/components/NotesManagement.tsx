@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { notesAPI } from '@/lib/api'
+import { notesAPI, getProxiedImageUrl } from '@/lib/api'
 import { formatNumber, formatDate, truncateText } from '@/lib/utils'
 import { Loader2, RefreshCw, Trash2, Bot, Copy, Image, Video, MapPin, Calendar, User } from 'lucide-react'
 import RecreateDialog from '@/components/RecreateDialog'
@@ -155,7 +155,7 @@ export default function NotesManagement() {
               {note.images.length > 0 && (
                 <div className="relative h-48 bg-gray-100">
                   <img
-                    src={note.images[0]}
+                    src={getProxiedImageUrl(note.images[0])}
                     alt={note.title}
                     className="w-full h-full object-cover"
                   />
@@ -193,7 +193,7 @@ export default function NotesManagement() {
                 <div className="flex items-center space-x-2 mb-3">
                   {note.author?.avatar && (
                     <img
-                      src={note.author.avatar}
+                      src={getProxiedImageUrl(note.author.avatar)}
                       alt={note.author.nickname || '作者'}
                       className="w-6 h-6 rounded-full"
                     />

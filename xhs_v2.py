@@ -277,7 +277,7 @@ def get_xiaohongshu_note(url, cookies=None):
 if __name__ == "__main__":
   
   # 测试链接
-  test_url = "https://www.xiaohongshu.com/discovery/item/6878b8950000000011002e20?source=webshare&xhsshare=pc_web&xsec_token=ABP3ErtPvtY6diVHCBrV3Y7YuuFuLWoDObdOUfTlz4U0k=&xsec_source=pc_share"
+  test_url = "https://www.xiaohongshu.com/explore/68ad9b60000000001c00d7d4?source=webshare&xhsshare=pc_web&xsec_token=ABFXEJZJMcEmGGs6TiE1dRIKcYbMirDmzfWygpKpunF14=&xsec_source=pc_share"
   
   result = get_xiaohongshu_note(test_url)
   
