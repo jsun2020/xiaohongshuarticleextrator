@@ -145,16 +145,16 @@ class handler(BaseHTTPRequestHandler):
                 for row in rows:
                     try:
                         history = dict(zip(columns, row))
-                        # Ensure no NULL values with double protection
+                        # Ensure no NULL values with proper type conversions
                         formatted_history = {
-                            'id': history.get('id') or 0,
-                            'note_id': str(history.get('note_id') or ''),
-                            'note_title': history.get('original_title') or '',  # Use original_title as note title
+                            'id': int(history.get('id') or 0),
+                            'note_id': str(history.get('note_id') or ''),  # Ensure string type
+                            'note_title': str(history.get('original_title') or ''),
                             'original_url': '',  # Not available without note join
-                            'original_title': history.get('original_title') or '',
-                            'original_content': history.get('original_content') or '',
-                            'new_title': history.get('recreated_title') or '',
-                            'new_content': history.get('recreated_content') or '',
+                            'original_title': str(history.get('original_title') or ''),
+                            'original_content': str(history.get('original_content') or ''),
+                            'new_title': str(history.get('recreated_title') or ''),
+                            'new_content': str(history.get('recreated_content') or ''),
                             'created_at': str(history.get('created_at') or '')
                         }
                         history_list.append(formatted_history)
@@ -162,6 +162,9 @@ class handler(BaseHTTPRequestHandler):
                     except Exception as format_error:
                         print(f"Error formatting history: {format_error}")
                         continue
+                
+                # Calculate correct total_pages based on actual database count
+                total_pages = (total_count + per_page - 1) // per_page if total_count > 0 else 1
                 
                 response_data = {
                     'success': True,
@@ -171,14 +174,22 @@ class handler(BaseHTTPRequestHandler):
                         'offset': offset,
                         'page': page,
                         'per_page': per_page,
-                        'total': total_count
+                        'total': total_count,
+                        'total_pages': total_pages,
+                        'has_more': offset + per_page < total_count
                     }
                 }
                 
                 print(f"[API DEBUG] Returning {len(history_list)} history records")
+                print(f"[API DEBUG] Total count from DB: {total_count}")
+                print(f"[API DEBUG] Pagination: limit={limit}, offset={offset}, total_pages={total_pages}")
                 if history_list:
                     print(f"[API DEBUG] First record keys: {list(history_list[0].keys())}")
                     print(f"[API DEBUG] First record data: {history_list[0]}")
+                    print(f"[API DEBUG] Response structure: {response_data}")
+                else:
+                    print(f"[API DEBUG] Empty history_list - no records found for user {user_id}")
+                    print(f"[API DEBUG] Response will be: {response_data}")
                 
                 self.send_response(200)
                 self.send_header('Content-Type', 'application/json')

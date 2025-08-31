@@ -155,6 +155,12 @@ export default function RecreateHistory() {
             <p className="text-sm text-gray-400 mt-2">
               请先在"内容管理"页面进行AI二创
             </p>
+            {/* Debug info for empty state */}
+            <div className="mt-4 p-2 bg-gray-100 rounded text-xs text-left font-mono">
+              <p>Debug: history.length = {history.length}</p>
+              <p>Debug: total = {total}</p>
+              <p>Debug: loading = {loading.toString()}</p>
+            </div>
           </CardContent>
         </Card>
       ) : (
