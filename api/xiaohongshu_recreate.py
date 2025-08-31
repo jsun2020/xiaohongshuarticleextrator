@@ -461,25 +461,52 @@ class handler(BaseHTTPRequestHandler):
                     conn = db.get_connection()
                     cursor = conn.cursor()
                     
-                    # Convert note_id to proper integer, default to 0 if invalid
-                    try:
-                        note_id_int = int(note_id) if note_id and str(note_id).strip().isdigit() else 0
-                    except (ValueError, TypeError):
-                        note_id_int = 0
+                    # Lookup the correct integer note_id from the notes table
+                    actual_note_id = None
+                    if note_id:
+                        try:
+                            print(f"[DB DEBUG] Looking up note_id for: {note_id}")
+                            
+                            # If note_id is already a valid integer, use it directly
+                            if str(note_id).strip().isdigit():
+                                actual_note_id = int(note_id)
+                                print(f"[DB DEBUG] Using integer note_id directly: {actual_note_id}")
+                            else:
+                                # Otherwise, lookup by note_id string in the notes table
+                                if getattr(db, 'use_postgres', False):
+                                    cursor.execute('SELECT id FROM notes WHERE note_id = %s LIMIT 1', (str(note_id),))
+                                else:
+                                    cursor.execute('SELECT id FROM notes WHERE note_id = ? LIMIT 1', (str(note_id),))
+                                
+                                result = cursor.fetchone()
+                                if result:
+                                    actual_note_id = result[0]
+                                    print(f"[DB DEBUG] Found integer ID {actual_note_id} for note_id {note_id}")
+                                else:
+                                    print(f"[DB DEBUG] No matching note found for note_id {note_id}, using 0")
+                                    actual_note_id = 0
+                        except Exception as lookup_error:
+                            print(f"[DB ERROR] Note lookup failed: {lookup_error}")
+                            actual_note_id = 0
+                    else:
+                        print(f"[DB DEBUG] No note_id provided, using 0")
+                        actual_note_id = 0
                     
-                    if db.use_postgres:
+                    print(f"[DB DEBUG] Final note_id for insert: {actual_note_id}")
+                    
+                    if getattr(db, 'use_postgres', False):
                         cursor.execute('''
                             INSERT INTO recreate_history (user_id, note_id, original_title, 
                                                         original_content, recreated_title, recreated_content)
                             VALUES (%s, %s, %s, %s, %s, %s)
-                        ''', (user_id, note_id_int, title, content, 
+                        ''', (user_id, actual_note_id, title, content, 
                               recreated_data['new_title'], recreated_data['new_content']))
                     else:
                         cursor.execute('''
                             INSERT INTO recreate_history (user_id, note_id, original_title, 
                                                         original_content, recreated_title, recreated_content)
                             VALUES (?, ?, ?, ?, ?, ?)
-                        ''', (user_id, note_id_int, title, content, 
+                        ''', (user_id, actual_note_id, title, content, 
                               recreated_data['new_title'], recreated_data['new_content']))
                     
                     conn.commit()

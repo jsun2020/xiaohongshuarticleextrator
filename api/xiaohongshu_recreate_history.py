@@ -195,11 +195,11 @@ class handler(BaseHTTPRequestHandler):
                 use_postgres = getattr(db, 'use_postgres', False)
                 print(f"[DB DEBUG] Using PostgreSQL: {use_postgres}")
                 
-                # Get recreate history with COALESCE to handle NULL values
+                # Get recreate history with proper NULL handling for integers
                 if use_postgres:
                     query = '''
                         SELECT id, user_id, 
-                               COALESCE(note_id, '') as note_id,
+                               COALESCE(note_id, 0) as note_id,
                                COALESCE(original_title, '') as original_title, 
                                COALESCE(original_content, '') as original_content, 
                                COALESCE(recreated_title, '') as recreated_title, 
@@ -214,7 +214,7 @@ class handler(BaseHTTPRequestHandler):
                 else:
                     query = '''
                         SELECT id, user_id, 
-                               COALESCE(note_id, '') as note_id,
+                               COALESCE(note_id, 0) as note_id,
                                COALESCE(original_title, '') as original_title, 
                                COALESCE(original_content, '') as original_content, 
                                COALESCE(recreated_title, '') as recreated_title, 
