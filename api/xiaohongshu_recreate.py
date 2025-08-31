@@ -363,8 +363,15 @@ class handler(BaseHTTPRequestHandler):
         try:
             # 初始化数据库
             db.init_database()
-            print(f"[CRITICAL DEBUG] AI recreate - database path: {db.db_path}")
-            print(f"[CRITICAL DEBUG] AI recreate - database exists: {os.path.exists(db.db_path)}")
+            
+            # 调试信息 - 区分数据库类型
+            if hasattr(db, 'db_path'):
+                print(f"[CRITICAL DEBUG] AI recreate - SQLite database path: {db.db_path}")
+                print(f"[CRITICAL DEBUG] AI recreate - database exists: {os.path.exists(db.db_path)}")
+            else:
+                print(f"[CRITICAL DEBUG] AI recreate - Using PostgreSQL database")
+                print(f"[CRITICAL DEBUG] AI recreate - Database URL configured: {bool(db.db_url)}")
+            
             print(f"[CRITICAL DEBUG] AI recreate - current working dir: {os.getcwd()}")
             print(f"[CRITICAL DEBUG] AI recreate - temp dir: {os.environ.get('TMPDIR', 'not set')}")
             
