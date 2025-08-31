@@ -1,71 +1,175 @@
 """
-获取笔记列表API - Vercel Serverless函数
-Handles: GET /api/xiaohongshu/notes
+小红书笔记API - 合并版 - Vercel Serverless函数
+Handles: 
+- POST /api/xiaohongshu_notes_list - 采集笔记
+- GET /api/xiaohongshu_notes_list - 获取笔记列表
 """
+from http.server import BaseHTTPRequestHandler
 import sys
 import os
+import json
+import urllib.parse
+from urllib.parse import urlparse, parse_qs
+
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from _utils import parse_request, create_response, require_auth
 from _database import db
-import json
-from urllib.parse import urlparse, parse_qs
+from _xhs_crawler import get_xiaohongshu_note
 
-def handler(request):
-    """Vercel serverless function handler"""
+class handler(BaseHTTPRequestHandler):
+    def do_OPTIONS(self):
+        """Handle CORS preflight"""
+        self.send_response(200)
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Cookie')
+        self.end_headers()
     
-    # Handle CORS preflight
-    if request.method == 'OPTIONS':
-        return {
-            'statusCode': 200,
-            'headers': {
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-                'Access-Control-Allow-Headers': 'Content-Type, Authorization, Cookie'
-            }
-        }
-    
-    if request.method == 'GET':
-        """处理获取笔记列表请求"""
-        # 初始化数据库
-        db.init_database()
-        
+    def do_POST(self):
+        """处理获取小红书笔记请求"""
         try:
-            # 解析查询参数
-            query_params = {}
-            if hasattr(request, 'url'):
-                parsed_url = urlparse(request.url)
-                query_params = parse_qs(parsed_url.query)
-            elif hasattr(request, 'query'):
-                query_params = request.query or {}
+            # 初始化数据库
+            db.init_database()
+            
+            # 获取请求体
+            content_length = int(self.headers.get('Content-Length', 0))
+            if content_length > 0:
+                body = self.rfile.read(content_length)
+                try:
+                    data = json.loads(body.decode('utf-8'))
+                except json.JSONDecodeError:
+                    data = {}
+            else:
+                data = {}
             
             # 解析Cookie进行认证
             cookies = {}
-            cookie_header = request.headers.get('cookie', '') or request.headers.get('Cookie', '')
+            cookie_header = self.headers.get('Cookie', '')
             if cookie_header:
                 for item in cookie_header.split(';'):
                     if '=' in item:
                         key, value = item.strip().split('=', 1)
-                        cookies[key] = value
+                        cookies[key] = urllib.parse.unquote(value)
             
             req_data = {
-                'method': 'GET',
-                'query': query_params,
+                'method': 'POST',
+                'body': data,
                 'cookies': cookies,
-                'headers': dict(request.headers)
+                'headers': dict(self.headers)
             }
             
             # 检查用户认证
             user_id = require_auth(req_data)
             if not user_id:
-                return {
-                    'statusCode': 401,
-                    'headers': {
-                        'Content-Type': 'application/json',
-                        'Access-Control-Allow-Origin': '*'
-                    },
-                    'body': json.dumps({'success': False, 'error': '请先登录'})
+                self.send_response(401)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    'success': False, 
+                    'error': '请先登录'
+                }).encode('utf-8'))
+                return
+            
+            url = data.get('url', '').strip()
+            if not url:
+                self.send_response(400)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    'success': False, 
+                    'error': '请提供小红书链接'
+                }).encode('utf-8'))
+                return
+            
+            # 调用爬虫获取笔记信息
+            result = get_xiaohongshu_note(url)
+            
+            if result.get('success'):
+                note_data = result['data']
+                
+                # 保存到数据库
+                print(f"[API] Attempting to save note: {note_data.get('note_id')}")
+                save_success = db.save_note(note_data, user_id)
+                print(f"[API] Save result: {save_success}")
+                
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.send_header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+                self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Cookie')
+                self.end_headers()
+                
+                response_data = {
+                    'success': True,
+                    'message': '笔记获取并保存成功' if save_success else '笔记获取成功，但保存失败',
+                    'data': note_data,
+                    'saved_to_db': save_success
                 }
+                self.wfile.write(json.dumps(response_data, ensure_ascii=False).encode('utf-8'))
+            else:
+                self.send_response(400)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    'success': False,
+                    'error': result.get('error', '获取笔记失败')
+                }).encode('utf-8'))
+                
+        except Exception as e:
+            print(f"[API Error] Exception in xiaohongshu_note collection: {str(e)}")
+            self.send_response(500)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                'success': False,
+                'error': f'处理请求失败: {str(e)}'
+            }).encode('utf-8'))
+    
+    def do_GET(self):
+        """处理获取笔记列表请求"""
+        try:
+            # 初始化数据库
+            db.init_database()
+            
+            # 解析查询参数
+            query_params = {}
+            if self.path and '?' in self.path:
+                query_string = self.path.split('?', 1)[1]
+                query_params = parse_qs(query_string)
+            
+            # 解析Cookie进行认证
+            cookies = {}
+            cookie_header = self.headers.get('Cookie', '')
+            if cookie_header:
+                for item in cookie_header.split(';'):
+                    if '=' in item:
+                        key, value = item.strip().split('=', 1)
+                        cookies[key] = urllib.parse.unquote(value)
+            
+            req_data = {
+                'method': 'GET',
+                'query': query_params,
+                'cookies': cookies,
+                'headers': dict(self.headers)
+            }
+            
+            # 检查用户认证
+            user_id = require_auth(req_data)
+            if not user_id:
+                self.send_response(401)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    'success': False, 
+                    'error': '请先登录'
+                }).encode('utf-8'))
+                return
             
             # 获取分页参数
             try:
@@ -122,49 +226,36 @@ def handler(request):
                     print(f"Error formatting note: {format_error}")
                     continue
             
-            return {
-                'statusCode': 200,
-                'headers': {
-                    'Content-Type': 'application/json',
-                    'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
-                    'Pragma': 'no-cache',
-                    'Expires': '0',
-                    'Access-Control-Allow-Origin': '*',
-                    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-                    'Access-Control-Allow-Headers': 'Content-Type, Authorization, Cookie'
-                },
-                'body': json.dumps({
-                    'success': True,
-                    'data': formatted_notes,
-                    'pagination': {
-                        'limit': limit,
-                        'offset': offset,
-                        'page': page,
-                        'per_page': per_page,
-                        'total': total_count
-                    }
-                }, ensure_ascii=False)
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0')
+            self.send_header('Pragma', 'no-cache')
+            self.send_header('Expires', '0')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.send_header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+            self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Cookie')
+            self.end_headers()
+            
+            response_data = {
+                'success': True,
+                'data': formatted_notes,
+                'pagination': {
+                    'limit': limit,
+                    'offset': offset,
+                    'page': page,
+                    'per_page': per_page,
+                    'total': total_count
+                }
             }
+            self.wfile.write(json.dumps(response_data, ensure_ascii=False).encode('utf-8'))
             
         except Exception as e:
-            print(f"Error in notes API: {e}")
-            return {
-                'statusCode': 500,
-                'headers': {
-                    'Content-Type': 'application/json',
-                    'Access-Control-Allow-Origin': '*'
-                },
-                'body': json.dumps({
-                    'success': False,
-                    'error': f'获取笔记列表失败: {str(e)}'
-                })
-            }
-    
-    return {
-        'statusCode': 405,
-        'headers': {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*'
-        },
-        'body': json.dumps({'error': 'Method not allowed'})
-    }
+            print(f"Error in notes list API: {e}")
+            self.send_response(500)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                'success': False,
+                'error': f'获取笔记列表失败: {str(e)}'
+            }).encode('utf-8'))
