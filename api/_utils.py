@@ -3,6 +3,23 @@ Vercel Serverless 工具函数
 """
 import json
 import os
+import datetime # 确保导入 datetime
+import decimal  # 导入 decimal 以备不时之需
+
+class CustomEncoder(json.JSONEncoder):
+    """
+    自定义JSON编码器，用于处理datetime和decimal等特殊类型。
+    """
+    def default(self, obj):
+        if isinstance(obj, datetime.datetime):
+            # 将datetime对象格式化为ISO 8601标准的字符串
+            return obj.isoformat()
+        if isinstance(obj, decimal.Decimal):
+            # 将Decimal对象格式化为浮点数
+            return float(obj)
+        # 让基类处理其他所有类型
+        return super().default(obj)
+
 try:
     import jwt
 except ImportError:
@@ -108,7 +125,8 @@ def create_response(data, status_code=200, cookies=None):
     return {
         'statusCode': status_code,
         'headers': headers,
-        'body': json.dumps(data, ensure_ascii=False)
+        # ！！！关键改动：在这里使用自定义的编码器！！！
+        'body': json.dumps(data, ensure_ascii=False, cls=CustomEncoder)
     }
 
 def create_session_token(user_id: int) -> str:
