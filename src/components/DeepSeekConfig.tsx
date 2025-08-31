@@ -43,13 +43,20 @@ export default function DeepSeekConfig({ open, onOpenChange }: DeepSeekConfigPro
     try {
       setLoading(true)
       const response = await deepseekAPI.getConfig()
-      if (response.data.success) {
-        setConfig(response.data.config)
-        setOriginalApiKey(response.data.config.api_key)
+      if (response.data.success && response.data.data && response.data.data.config) {
+        const configData = response.data.data.config
+        setConfig({
+          api_key: configData.deepseek_api_key || '',
+          model: configData.deepseek_model || 'deepseek-chat',
+          temperature: parseFloat(configData.deepseek_temperature) || 0.7,
+          max_tokens: parseInt(configData.deepseek_max_tokens) || 1000
+        })
+        setOriginalApiKey(configData.deepseek_api_key || '')
         setApiKeyChanged(false)
       }
     } catch (error) {
       console.error('加载配置失败:', error)
+      setError('加载配置失败，请刷新页面重试')
     } finally {
       setLoading(false)
     }
@@ -60,12 +67,18 @@ export default function DeepSeekConfig({ open, onOpenChange }: DeepSeekConfigPro
       setLoading(true)
       setError('')
       
-      // 准备要保存的配置
-      const configToSave = { ...config }
+      // 准备要保存的配置 - 转换为API期望的字段名
+      const configToSave: any = {
+        deepseek_model: config.model,
+        deepseek_temperature: config.temperature.toString(),
+        deepseek_max_tokens: config.max_tokens.toString()
+      }
       
       // 如果API Key没有改变且是掩码格式，不发送API Key
-      if (!apiKeyChanged && originalApiKey.includes('***')) {
-        delete configToSave.api_key
+      if (!apiKeyChanged && originalApiKey && originalApiKey.includes('***')) {
+        // 不发送API Key
+      } else if (config.api_key) {
+        configToSave.deepseek_api_key = config.api_key
       }
       
       const response = await deepseekAPI.updateConfig(configToSave)

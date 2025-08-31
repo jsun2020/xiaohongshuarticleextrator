@@ -1,81 +1,84 @@
 """
 二创历史列表API - Vercel Serverless函数
-Handles: GET /api/xiaohongshu/recreate/history
+Handles: GET /api/xiaohongshu_recreate_history
 """
+from http.server import BaseHTTPRequestHandler
 import sys
 import os
+import json
+import urllib.parse
+from urllib.parse import urlparse, parse_qs
+
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from _utils import parse_request, create_response, require_auth
 from _database import db
-import json
-from urllib.parse import urlparse, parse_qs
 
-def handler(request):
-    """Vercel serverless function handler"""
+class handler(BaseHTTPRequestHandler):
+    def do_OPTIONS(self):
+        """Handle CORS preflight"""
+        self.send_response(200)
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Cookie')
+        self.end_headers()
     
-    # Handle CORS preflight
-    if request.method == 'OPTIONS':
-        return {
-            'statusCode': 200,
-            'headers': {
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-                'Access-Control-Allow-Headers': 'Content-Type, Authorization, Cookie'
-            }
-        }
-    
-    if request.method == 'GET':
+    def do_GET(self):
         """处理二创历史请求"""
-        # 初始化数据库
-        db.init_database()
-        print(f"[CRITICAL DEBUG] Recreate history - database path: {db.db_path}")
-        print(f"[CRITICAL DEBUG] Recreate history - database exists: {os.path.exists(db.db_path)}")
-        print(f"[CRITICAL DEBUG] Recreate history - current working dir: {os.getcwd()}")
-        print(f"[CRITICAL DEBUG] Recreate history - temp dir: {os.environ.get('TMPDIR', 'not set')}")
-        print(f"[DB DEBUG] Recreate history using database: {db.db_path}")
-        
         try:
+            # 初始化数据库
+            db.init_database()
+            
+            # 调试信息 - 区分数据库类型
+            if hasattr(db, 'db_path'):
+                print(f"[CRITICAL DEBUG] Recreate history - SQLite database path: {db.db_path}")
+                print(f"[CRITICAL DEBUG] Recreate history - database exists: {os.path.exists(db.db_path)}")
+            else:
+                print(f"[CRITICAL DEBUG] Recreate history - Using PostgreSQL database")
+                print(f"[CRITICAL DEBUG] Recreate history - Database URL configured: {bool(db.db_url)}")
+                
+            print(f"[CRITICAL DEBUG] Recreate history - current working dir: {os.getcwd()}")
+            print(f"[CRITICAL DEBUG] Recreate history - temp dir: {os.environ.get('TMPDIR', 'not set')}")
+            
             # 解析查询参数
             query_params = {}
-            if hasattr(request, 'url'):
-                parsed_url = urlparse(request.url)
-                query_params = parse_qs(parsed_url.query)
-            elif hasattr(request, 'query'):
-                query_params = request.query or {}
+            if self.path and '?' in self.path:
+                query_string = self.path.split('?', 1)[1]
+                query_params = parse_qs(query_string)
             
             # 解析Cookie进行认证
             cookies = {}
-            cookie_header = request.headers.get('cookie', '') or request.headers.get('Cookie', '')
+            cookie_header = self.headers.get('Cookie', '')
             if cookie_header:
                 for item in cookie_header.split(';'):
                     if '=' in item:
                         key, value = item.strip().split('=', 1)
-                        cookies[key] = value
+                        cookies[key] = urllib.parse.unquote(value)
             
             req_data = {
                 'method': 'GET',
                 'query': query_params,
                 'cookies': cookies,
-                'headers': dict(request.headers)
+                'headers': dict(self.headers)
             }
             
             # 检查用户认证
             print(f"[AUTH DEBUG] Cookies in request: {list(cookies.keys())}")
-            print(f"[AUTH DEBUG] Headers: {list(request.headers.keys())}")
+            print(f"[AUTH DEBUG] Headers: {list(self.headers.keys())}")
             
             user_id = require_auth(req_data)
             print(f"[AUTH DEBUG] User ID from auth: {user_id}")
             
             if not user_id:
-                return {
-                    'statusCode': 401,
-                    'headers': {
-                        'Content-Type': 'application/json',
-                        'Access-Control-Allow-Origin': '*'
-                    },
-                    'body': json.dumps({'success': False, 'error': '请先登录'})
-                }
+                self.send_response(401)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    'success': False, 
+                    'error': '请先登录'
+                }).encode('utf-8'))
+                return
             
             # 获取分页参数
             try:
@@ -173,39 +176,25 @@ def handler(request):
                     print(f"[API DEBUG] First record data: {history_list[0]}")
                     print(f"[API DEBUG] Response structure: {{'success': {response_data['success']}, 'data_length': {len(response_data['data'])}, 'pagination': {response_data['pagination']}}}")
                 
-                return {
-                    'statusCode': 200,
-                    'headers': {
-                        'Content-Type': 'application/json',
-                        'Access-Control-Allow-Origin': '*',
-                        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-                        'Access-Control-Allow-Headers': 'Content-Type, Authorization, Cookie'
-                    },
-                    'body': json.dumps(response_data, ensure_ascii=False)
-                }
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.send_header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+                self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Cookie')
+                self.end_headers()
+                
+                self.wfile.write(json.dumps(response_data, ensure_ascii=False).encode('utf-8'))
                 
             finally:
                 conn.close()
                 
         except Exception as e:
             print(f"Error in recreate history API: {e}")
-            return {
-                'statusCode': 500,
-                'headers': {
-                    'Content-Type': 'application/json',
-                    'Access-Control-Allow-Origin': '*'
-                },
-                'body': json.dumps({
-                    'success': False,
-                    'error': f'获取二创历史失败: {str(e)}'
-                })
-            }
-    
-    return {
-        'statusCode': 405,
-        'headers': {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*'
-        },
-        'body': json.dumps({'error': 'Method not allowed'})
-    }
+            self.send_response(500)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                'success': False,
+                'error': f'获取二创历史失败: {str(e)}'
+            }).encode('utf-8'))
