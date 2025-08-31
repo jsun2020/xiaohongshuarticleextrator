@@ -1,95 +1,91 @@
 """
 小红书笔记二创API - Vercel Serverless函数
 """
+from http.server import BaseHTTPRequestHandler
 import sys
 import os
+import json
+import urllib.parse
+
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from _utils import parse_request, create_response, require_auth
 from _database import db
 from _deepseek_api import deepseek_api
-import json
 
-def handler(request):
-    """Vercel serverless function handler"""
+class handler(BaseHTTPRequestHandler):
+    def do_OPTIONS(self):
+        """Handle CORS preflight"""
+        self.send_response(200)
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Cookie')
+        self.end_headers()
     
-    # Handle CORS preflight
-    if request.method == 'OPTIONS':
-        return {
-            'statusCode': 200,
-            'headers': {
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-                'Access-Control-Allow-Headers': 'Content-Type, Authorization, Cookie'
-            }
-        }
-    
-    if request.method == 'POST':
+    def do_POST(self):
         """处理笔记二创请求"""
-        # 初始化数据库
-        db.init_database()
-        print(f"[CRITICAL DEBUG] AI recreate - database path: {db.db_path}")
-        print(f"[CRITICAL DEBUG] AI recreate - database exists: {os.path.exists(db.db_path)}")
-        print(f"[CRITICAL DEBUG] AI recreate - current working dir: {os.getcwd()}")
-        print(f"[CRITICAL DEBUG] AI recreate - temp dir: {os.environ.get('TMPDIR', 'not set')}")
-        
         try:
-            # 读取请求体
-            if hasattr(request, 'json') and request.json:
-                data = request.json
-            elif hasattr(request, 'body'):
-                if isinstance(request.body, (bytes, str)):
-                    body_str = request.body.decode('utf-8') if isinstance(request.body, bytes) else request.body
-                    data = json.loads(body_str) if body_str else {}
-                else:
-                    data = request.body or {}
+            # 初始化数据库
+            db.init_database()
+            print(f"[CRITICAL DEBUG] AI recreate - database path: {db.db_path}")
+            print(f"[CRITICAL DEBUG] AI recreate - database exists: {os.path.exists(db.db_path)}")
+            print(f"[CRITICAL DEBUG] AI recreate - current working dir: {os.getcwd()}")
+            print(f"[CRITICAL DEBUG] AI recreate - temp dir: {os.environ.get('TMPDIR', 'not set')}")
+            
+            # 获取请求体
+            content_length = int(self.headers.get('Content-Length', 0))
+            if content_length > 0:
+                body = self.rfile.read(content_length)
+                try:
+                    data = json.loads(body.decode('utf-8'))
+                except json.JSONDecodeError:
+                    data = {}
             else:
                 data = {}
             
             # 解析Cookie进行认证
             cookies = {}
-            cookie_header = request.headers.get('cookie', '') or request.headers.get('Cookie', '')
+            cookie_header = self.headers.get('Cookie', '')
             if cookie_header:
                 for item in cookie_header.split(';'):
                     if '=' in item:
                         key, value = item.strip().split('=', 1)
-                        cookies[key] = value
+                        cookies[key] = urllib.parse.unquote(value)
             
             req_data = {
                 'method': 'POST',
                 'body': data,
                 'cookies': cookies,
-                'headers': dict(request.headers)
+                'headers': dict(self.headers)
             }
             
             # 检查用户认证
             user_id = require_auth(req_data)
             if not user_id:
-                return {
-                    'statusCode': 401,
-                    'headers': {
-                        'Content-Type': 'application/json',
-                        'Access-Control-Allow-Origin': '*'
-                    },
-                    'body': json.dumps({'success': False, 'error': '请先登录'})
-                }
+                self.send_response(401)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    'success': False, 
+                    'error': '请先登录'
+                }).encode('utf-8'))
+                return
             
             note_id = data.get('note_id')
             title = data.get('title', '').strip()
             content = data.get('content', '').strip()
             
             if not title or not content:
-                return {
-                    'statusCode': 400,
-                    'headers': {
-                        'Content-Type': 'application/json',
-                        'Access-Control-Allow-Origin': '*'
-                    },
-                    'body': json.dumps({
-                        'success': False,
-                        'error': '标题和内容不能为空'
-                    })
-                }
+                self.send_response(400)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    'success': False,
+                    'error': '标题和内容不能为空'
+                }).encode('utf-8'))
+                return
             
             # 获取用户配置
             user_config = db.get_user_config(user_id)
@@ -127,57 +123,41 @@ def handler(request):
                     except Exception as e:
                         print(f"保存二创历史失败: {e}")
                 
-                return {
-                    'statusCode': 200,
-                    'headers': {
-                        'Content-Type': 'application/json',
-                        'Access-Control-Allow-Origin': '*',
-                        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-                        'Access-Control-Allow-Headers': 'Content-Type, Authorization, Cookie'
-                    },
-                    'body': json.dumps({
-                        'success': True,
-                        'message': '笔记二创成功',
-                        'data': {
-                            'original_title': title,
-                            'original_content': content,
-                            'new_title': recreated_data['new_title'],
-                            'new_content': recreated_data['new_content']
-                        }
-                    }, ensure_ascii=False)
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.send_header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+                self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Cookie')
+                self.end_headers()
+                
+                response_data = {
+                    'success': True,
+                    'message': '笔记二创成功',
+                    'data': {
+                        'original_title': title,
+                        'original_content': content,
+                        'new_title': recreated_data['new_title'],
+                        'new_content': recreated_data['new_content']
+                    }
                 }
+                self.wfile.write(json.dumps(response_data, ensure_ascii=False).encode('utf-8'))
             else:
-                return {
-                    'statusCode': 400,
-                    'headers': {
-                        'Content-Type': 'application/json',
-                        'Access-Control-Allow-Origin': '*'
-                    },
-                    'body': json.dumps({
-                        'success': False,
-                        'error': recreate_result.get('error', '二创失败')
-                    })
-                }
+                self.send_response(400)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    'success': False,
+                    'error': recreate_result.get('error', '二创失败')
+                }).encode('utf-8'))
                 
         except Exception as e:
             print(f"Error in recreate API: {e}")
-            return {
-                'statusCode': 500,
-                'headers': {
-                    'Content-Type': 'application/json',
-                    'Access-Control-Allow-Origin': '*'
-                },
-                'body': json.dumps({
-                    'success': False,
-                    'error': f'处理二创请求失败: {str(e)}'
-                })
-            }
-    
-    return {
-        'statusCode': 405,
-        'headers': {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*'
-        },
-        'body': json.dumps({'error': 'Method not allowed'})
-    }
+            self.send_response(500)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                'success': False,
+                'error': f'处理二创请求失败: {str(e)}'
+            }).encode('utf-8'))

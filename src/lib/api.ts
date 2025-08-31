@@ -112,13 +112,13 @@ export const recreateAPI = {
 // DeepSeek配置API
 export const deepseekAPI = {
   getConfig: () =>
-    api.get('/deepseek/config'),
+    api.get('/deepseek_config'),
   
   updateConfig: (config: any) =>
-    api.post('/deepseek/config', config),
+    api.post('/deepseek_config', config),
   
   testConnection: () =>
-    api.post('/deepseek/test'),
+    api.post('/deepseek_test'),
 }
 
 // 健康检查API
