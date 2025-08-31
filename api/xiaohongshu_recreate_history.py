@@ -130,6 +130,8 @@ class handler(BaseHTTPRequestHandler):
                 rows = cursor.fetchall()
                 columns = [desc[0] for desc in cursor.description]
                 
+                print(f"[DB DEBUG] Found {len(rows)} recreate history records for user {user_id}")
+                
                 # Get total count
                 if db.use_postgres:
                     cursor.execute('SELECT COUNT(*) FROM recreate_history WHERE user_id = %s', (user_id,))
@@ -137,13 +139,14 @@ class handler(BaseHTTPRequestHandler):
                     cursor.execute('SELECT COUNT(*) FROM recreate_history WHERE user_id = ?', (user_id,))
                 
                 total_count = cursor.fetchone()[0]
+                print(f"[DB DEBUG] Total recreate history count: {total_count}")
                 
                 history_list = []
                 for row in rows:
                     try:
                         history = dict(zip(columns, row))
                         # Ensure no NULL values with double protection
-                        history_list.append({
+                        formatted_history = {
                             'id': history.get('id') or 0,
                             'note_id': str(history.get('note_id') or ''),
                             'note_title': history.get('original_title') or '',  # Use original_title as note title
@@ -153,7 +156,9 @@ class handler(BaseHTTPRequestHandler):
                             'new_title': history.get('recreated_title') or '',
                             'new_content': history.get('recreated_content') or '',
                             'created_at': str(history.get('created_at') or '')
-                        })
+                        }
+                        history_list.append(formatted_history)
+                        print(f"[DB DEBUG] Formatted history record {history.get('id')}: {formatted_history['original_title'][:50]}...")
                     except Exception as format_error:
                         print(f"Error formatting history: {format_error}")
                         continue
@@ -174,7 +179,6 @@ class handler(BaseHTTPRequestHandler):
                 if history_list:
                     print(f"[API DEBUG] First record keys: {list(history_list[0].keys())}")
                     print(f"[API DEBUG] First record data: {history_list[0]}")
-                    print(f"[API DEBUG] Response structure: {{'success': {response_data['success']}, 'data_length': {len(response_data['data'])}, 'pagination': {response_data['pagination']}}}")
                 
                 self.send_response(200)
                 self.send_header('Content-Type', 'application/json')
@@ -189,7 +193,10 @@ class handler(BaseHTTPRequestHandler):
                 conn.close()
                 
         except Exception as e:
-            print(f"Error in recreate history API: {e}")
+            print(f"[RECREATE HISTORY ERROR] Exception in recreate history API: {str(e)}")
+            import traceback
+            print(f"[RECREATE HISTORY ERROR] Traceback: {traceback.format_exc()}")
+            
             self.send_response(500)
             self.send_header('Content-Type', 'application/json')
             self.send_header('Access-Control-Allow-Origin', '*')
