@@ -26,8 +26,23 @@ class handler(BaseHTTPRequestHandler):
     def do_GET(self):
         """处理二创历史请求"""
         try:
+            print(f"[API DEBUG] Starting recreate history request")
+            
             # 初始化数据库
-            db.init_database()
+            try:
+                db.init_database()
+                print(f"[API DEBUG] Database initialized successfully")
+            except Exception as db_init_error:
+                print(f"[API ERROR] Database initialization failed: {db_init_error}")
+                self.send_response(500)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    'success': False,
+                    'error': f'数据库初始化失败: {str(db_init_error)}'
+                }).encode('utf-8'))
+                return
             
             # 调试信息 - 区分数据库类型
             if hasattr(db, 'db_path'):
@@ -35,7 +50,7 @@ class handler(BaseHTTPRequestHandler):
                 print(f"[CRITICAL DEBUG] Recreate history - database exists: {os.path.exists(db.db_path)}")
             else:
                 print(f"[CRITICAL DEBUG] Recreate history - Using PostgreSQL database")
-                print(f"[CRITICAL DEBUG] Recreate history - Database URL configured: {bool(db.db_url)}")
+                print(f"[CRITICAL DEBUG] Recreate history - Database URL configured: {bool(getattr(db, 'db_url', False))}")
                 
             print(f"[CRITICAL DEBUG] Recreate history - current working dir: {os.getcwd()}")
             print(f"[CRITICAL DEBUG] Recreate history - temp dir: {os.environ.get('TMPDIR', 'not set')}")
@@ -45,6 +60,8 @@ class handler(BaseHTTPRequestHandler):
             if self.path and '?' in self.path:
                 query_string = self.path.split('?', 1)[1]
                 query_params = parse_qs(query_string)
+            
+            print(f"[API DEBUG] Query params: {query_params}")
             
             # 解析Cookie进行认证
             cookies = {}
@@ -66,10 +83,23 @@ class handler(BaseHTTPRequestHandler):
             print(f"[AUTH DEBUG] Cookies in request: {list(cookies.keys())}")
             print(f"[AUTH DEBUG] Headers: {list(self.headers.keys())}")
             
-            user_id = require_auth(req_data)
-            print(f"[AUTH DEBUG] User ID from auth: {user_id}")
+            try:
+                user_id = require_auth(req_data)
+                print(f"[AUTH DEBUG] User ID from auth: {user_id}")
+            except Exception as auth_error:
+                print(f"[AUTH ERROR] Authentication failed: {auth_error}")
+                self.send_response(401)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    'success': False, 
+                    'error': '认证失败，请重新登录'
+                }).encode('utf-8'))
+                return
             
             if not user_id:
+                print(f"[AUTH DEBUG] No user_id returned from auth")
                 self.send_response(401)
                 self.send_header('Content-Type', 'application/json')
                 self.send_header('Access-Control-Allow-Origin', '*')
@@ -93,13 +123,32 @@ class handler(BaseHTTPRequestHandler):
                 per_page = 20
             
             # 获取二创历史
-            conn = db.get_connection()
-            cursor = conn.cursor()
+            try:
+                conn = db.get_connection()
+                print(f"[DB DEBUG] Database connection obtained successfully")
+            except Exception as conn_error:
+                print(f"[DB ERROR] Failed to get database connection: {conn_error}")
+                self.send_response(500)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    'success': False,
+                    'error': f'数据库连接失败: {str(conn_error)}'
+                }).encode('utf-8'))
+                return
             
             try:
+                cursor = conn.cursor()
+                print(f"[DB DEBUG] Database cursor created")
+                
+                # Detect database type safely
+                use_postgres = getattr(db, 'use_postgres', False)
+                print(f"[DB DEBUG] Using PostgreSQL: {use_postgres}")
+                
                 # Get recreate history with COALESCE to handle NULL values
-                if db.use_postgres:
-                    cursor.execute('''
+                if use_postgres:
+                    query = '''
                         SELECT id, user_id, 
                                COALESCE(note_id, '') as note_id,
                                COALESCE(original_title, '') as original_title, 
@@ -111,9 +160,10 @@ class handler(BaseHTTPRequestHandler):
                         WHERE user_id = %s
                         ORDER BY created_at DESC
                         LIMIT %s OFFSET %s
-                    ''', (user_id, per_page, offset))
+                    '''
+                    params = (user_id, per_page, offset)
                 else:
-                    cursor.execute('''
+                    query = '''
                         SELECT id, user_id, 
                                COALESCE(note_id, '') as note_id,
                                COALESCE(original_title, '') as original_title, 
@@ -125,7 +175,11 @@ class handler(BaseHTTPRequestHandler):
                         WHERE user_id = ?
                         ORDER BY created_at DESC
                         LIMIT ? OFFSET ?
-                    ''', (user_id, per_page, offset))
+                    '''
+                    params = (user_id, per_page, offset)
+                
+                print(f"[DB DEBUG] Executing query with params: {params}")
+                cursor.execute(query, params)
                 
                 rows = cursor.fetchall()
                 columns = [desc[0] for desc in cursor.description]
@@ -133,10 +187,15 @@ class handler(BaseHTTPRequestHandler):
                 print(f"[DB DEBUG] Found {len(rows)} recreate history records for user {user_id}")
                 
                 # Get total count
-                if db.use_postgres:
-                    cursor.execute('SELECT COUNT(*) FROM recreate_history WHERE user_id = %s', (user_id,))
+                if use_postgres:
+                    count_query = 'SELECT COUNT(*) FROM recreate_history WHERE user_id = %s'
+                    count_params = (user_id,)
                 else:
-                    cursor.execute('SELECT COUNT(*) FROM recreate_history WHERE user_id = ?', (user_id,))
+                    count_query = 'SELECT COUNT(*) FROM recreate_history WHERE user_id = ?'
+                    count_params = (user_id,)
+                
+                print(f"[DB DEBUG] Executing count query with params: {count_params}")
+                cursor.execute(count_query, count_params)
                 
                 total_count = cursor.fetchone()[0]
                 print(f"[DB DEBUG] Total recreate history count: {total_count}")
@@ -200,8 +259,27 @@ class handler(BaseHTTPRequestHandler):
                 
                 self.wfile.write(json.dumps(response_data, ensure_ascii=False).encode('utf-8'))
                 
+            except Exception as db_error:
+                print(f"[DB ERROR] Database operation failed: {db_error}")
+                import traceback
+                print(f"[DB ERROR] Traceback: {traceback.format_exc()}")
+                
+                self.send_response(500)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    'success': False,
+                    'error': f'数据库查询失败: {str(db_error)}'
+                }).encode('utf-8'))
+                
             finally:
-                conn.close()
+                try:
+                    if 'conn' in locals():
+                        conn.close()
+                        print(f"[DB DEBUG] Database connection closed")
+                except Exception as close_error:
+                    print(f"[DB ERROR] Error closing connection: {close_error}")
                 
         except Exception as e:
             print(f"[RECREATE HISTORY ERROR] Exception in recreate history API: {str(e)}")

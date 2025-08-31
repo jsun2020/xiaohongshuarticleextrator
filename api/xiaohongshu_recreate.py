@@ -461,19 +461,25 @@ class handler(BaseHTTPRequestHandler):
                     conn = db.get_connection()
                     cursor = conn.cursor()
                     
+                    # Convert note_id to proper integer, default to 0 if invalid
+                    try:
+                        note_id_int = int(note_id) if note_id and str(note_id).strip().isdigit() else 0
+                    except (ValueError, TypeError):
+                        note_id_int = 0
+                    
                     if db.use_postgres:
                         cursor.execute('''
                             INSERT INTO recreate_history (user_id, note_id, original_title, 
                                                         original_content, recreated_title, recreated_content)
                             VALUES (%s, %s, %s, %s, %s, %s)
-                        ''', (user_id, note_id or '', title, content, 
+                        ''', (user_id, note_id_int, title, content, 
                               recreated_data['new_title'], recreated_data['new_content']))
                     else:
                         cursor.execute('''
                             INSERT INTO recreate_history (user_id, note_id, original_title, 
                                                         original_content, recreated_title, recreated_content)
                             VALUES (?, ?, ?, ?, ?, ?)
-                        ''', (user_id, note_id or '', title, content, 
+                        ''', (user_id, note_id_int, title, content, 
                               recreated_data['new_title'], recreated_data['new_content']))
                     
                     conn.commit()
