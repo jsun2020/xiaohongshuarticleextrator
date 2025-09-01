@@ -422,8 +422,11 @@ class handler(BaseHTTPRequestHandler):
     def do_DELETE(self):
         """处理删除二创历史记录请求"""
         try:
+            print(f"[DELETE HISTORY DEBUG] Starting DELETE request for path: {self.path}")
+            
             # 初始化数据库
             db.init_database()
+            print(f"[DELETE HISTORY DEBUG] Database initialized")
             
             # 从查询参数中提取history_id
             # URL格式: /api/xiaohongshu_recreate_history?history_id={history_id}
@@ -431,13 +434,16 @@ class handler(BaseHTTPRequestHandler):
             if self.path and '?' in self.path:
                 query_string = self.path.split('?', 1)[1]
                 query_params = parse_qs(query_string)
+                print(f"[DELETE HISTORY DEBUG] Query params: {query_params}")
             
             history_id = None
             if 'history_id' in query_params:
                 try:
                     history_id = int(query_params['history_id'][0])
+                    print(f"[DELETE HISTORY DEBUG] Extracted history_id: {history_id}")
                 except (ValueError, IndexError):
                     history_id = None
+                    print(f"[DELETE HISTORY DEBUG] Failed to parse history_id")
             
             if not history_id:
                 self.send_response(400)
@@ -467,8 +473,11 @@ class handler(BaseHTTPRequestHandler):
             }
             
             # 检查用户认证
+            print(f"[DELETE HISTORY DEBUG] Checking authentication...")
             user_id = require_auth(req_data)
+            print(f"[DELETE HISTORY DEBUG] User ID: {user_id}")
             if not user_id:
+                print(f"[DELETE HISTORY DEBUG] Authentication failed")
                 self.send_response(401)
                 self.send_header('Content-Type', 'application/json')
                 self.send_header('Access-Control-Allow-Origin', '*')
@@ -480,7 +489,9 @@ class handler(BaseHTTPRequestHandler):
                 return
             
             # 删除二创历史记录
+            print(f"[DELETE HISTORY DEBUG] Attempting to delete history: {history_id} for user: {user_id}")
             success = db.delete_recreate_history(user_id, history_id)
+            print(f"[DELETE HISTORY DEBUG] Delete result: {success}")
             
             if success:
                 self.send_response(200)
@@ -504,7 +515,9 @@ class handler(BaseHTTPRequestHandler):
                 }).encode('utf-8'))
         
         except Exception as e:
-            print(f"Error in delete recreate history API: {e}")
+            print(f"[DELETE HISTORY ERROR] Exception in delete history API: {e}")
+            import traceback
+            print(f"[DELETE HISTORY ERROR] Traceback: {traceback.format_exc()}")
             self.send_response(500)
             self.send_header('Content-Type', 'application/json')
             self.send_header('Access-Control-Allow-Origin', '*')

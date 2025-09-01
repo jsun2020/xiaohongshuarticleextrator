@@ -264,8 +264,11 @@ class handler(BaseHTTPRequestHandler):
     def do_DELETE(self):
         """处理删除笔记请求"""
         try:
+            print(f"[DELETE DEBUG] Starting DELETE request for path: {self.path}")
+            
             # 初始化数据库
             db.init_database()
+            print(f"[DELETE DEBUG] Database initialized")
             
             # 从查询参数中提取note_id
             # URL格式: /api/xiaohongshu_notes_list?note_id={note_id}
@@ -273,10 +276,12 @@ class handler(BaseHTTPRequestHandler):
             if self.path and '?' in self.path:
                 query_string = self.path.split('?', 1)[1]
                 query_params = parse_qs(query_string)
+                print(f"[DELETE DEBUG] Query params: {query_params}")
             
             note_id = None
             if 'note_id' in query_params:
                 note_id = query_params['note_id'][0]
+                print(f"[DELETE DEBUG] Extracted note_id: {note_id}")
             
             if not note_id:
                 self.send_response(400)
@@ -306,8 +311,11 @@ class handler(BaseHTTPRequestHandler):
             }
             
             # 检查用户认证
+            print(f"[DELETE DEBUG] Checking authentication...")
             user_id = require_auth(req_data)
+            print(f"[DELETE DEBUG] User ID: {user_id}")
             if not user_id:
+                print(f"[DELETE DEBUG] Authentication failed")
                 self.send_response(401)
                 self.send_header('Content-Type', 'application/json')
                 self.send_header('Access-Control-Allow-Origin', '*')
@@ -319,7 +327,9 @@ class handler(BaseHTTPRequestHandler):
                 return
             
             # 删除笔记
+            print(f"[DELETE DEBUG] Attempting to delete note: {note_id} for user: {user_id}")
             success = db.delete_note(user_id, note_id)
+            print(f"[DELETE DEBUG] Delete result: {success}")
             
             if success:
                 self.send_response(200)
@@ -343,7 +353,9 @@ class handler(BaseHTTPRequestHandler):
                 }).encode('utf-8'))
         
         except Exception as e:
-            print(f"Error in delete note API: {e}")
+            print(f"[DELETE ERROR] Exception in delete note API: {e}")
+            import traceback
+            print(f"[DELETE ERROR] Traceback: {traceback.format_exc()}")
             self.send_response(500)
             self.send_header('Content-Type', 'application/json')
             self.send_header('Access-Control-Allow-Origin', '*')
