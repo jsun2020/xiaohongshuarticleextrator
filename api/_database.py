@@ -530,6 +530,73 @@ class DatabaseManager:
             return False
         finally:
             conn.close()
+    
+    def delete_note(self, user_id: int, note_id: str) -> bool:
+        """删除用户的笔记"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            # 验证笔记属于该用户
+            if self.use_postgres:
+                cursor.execute("SELECT id FROM notes WHERE user_id = %s AND note_id = %s", (user_id, note_id))
+            else:
+                cursor.execute("SELECT id FROM notes WHERE user_id = ? AND note_id = ?", (user_id, note_id))
+                
+            if not cursor.fetchone():
+                print(f"❌ 笔记 {note_id} 不存在或不属于用户 {user_id}")
+                return False
+            
+            # 删除相关数据
+            if self.use_postgres:
+                cursor.execute("DELETE FROM note_tags WHERE note_id = %s", (note_id,))
+                cursor.execute("DELETE FROM note_images WHERE note_id = %s", (note_id,))
+                cursor.execute("DELETE FROM note_videos WHERE note_id = %s", (note_id,))
+                cursor.execute("DELETE FROM note_stats WHERE note_id = %s", (note_id,))
+                cursor.execute("DELETE FROM note_authors WHERE note_id = %s", (note_id,))
+                cursor.execute("DELETE FROM notes WHERE user_id = %s AND note_id = %s", (user_id, note_id))
+            else:
+                cursor.execute("DELETE FROM note_tags WHERE note_id = ?", (note_id,))
+                cursor.execute("DELETE FROM note_images WHERE note_id = ?", (note_id,))
+                cursor.execute("DELETE FROM note_videos WHERE note_id = ?", (note_id,))
+                cursor.execute("DELETE FROM note_stats WHERE note_id = ?", (note_id,))
+                cursor.execute("DELETE FROM note_authors WHERE note_id = ?", (note_id,))
+                cursor.execute("DELETE FROM notes WHERE user_id = ? AND note_id = ?", (user_id, note_id))
+            
+            conn.commit()
+            print(f"✅ 用户 {user_id} 的笔记 {note_id} 删除成功")
+            return True
+            
+        except Exception as e:
+            print(f"❌ 删除笔记失败: {str(e)}")
+            return False
+        finally:
+            conn.close()
+    
+    def delete_recreate_history(self, user_id: int, history_id: int) -> bool:
+        """删除用户的二创历史记录"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            if self.use_postgres:
+                cursor.execute("DELETE FROM recreate_history WHERE user_id = %s AND id = %s", (user_id, history_id))
+            else:
+                cursor.execute("DELETE FROM recreate_history WHERE user_id = ? AND id = ?", (user_id, history_id))
+                
+            if cursor.rowcount > 0:
+                conn.commit()
+                print(f"✅ 用户 {user_id} 的二创历史记录 {history_id} 删除成功")
+                return True
+            else:
+                print(f"❌ 二创历史记录 {history_id} 不存在或不属于用户 {user_id}")
+                return False
+                
+        except Exception as e:
+            print(f"❌ 删除二创历史失败: {str(e)}")
+            return False
+        finally:
+            conn.close()
 
 # 全局数据库实例
 db = DatabaseManager()
