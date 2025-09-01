@@ -94,7 +94,7 @@ export const notesAPI = {
     api.get(`/xiaohongshu_notes_list?limit=${limit}&offset=${offset}&_t=${Date.now()}`),
   
   delete: (noteId: string) =>
-    api.delete(`/xiaohongshu/notes/${noteId}`),
+    api.delete(`/xiaohongshu_notes_list/${noteId}`),
   
   recreate: (title: string, content: string, noteId?: string) =>
     api.post('/xiaohongshu_recreate', { title, content, note_id: noteId }),
@@ -106,7 +106,7 @@ export const recreateAPI = {
     api.get(`/xiaohongshu_recreate_history?limit=${limit}&offset=${offset}`),
   
   deleteHistory: (historyId: number) =>
-    api.delete(`/xiaohongshu/recreate/history/${historyId}`),
+    api.delete(`/xiaohongshu_recreate_history/${historyId}`),
 }
 
 // DeepSeek配置API

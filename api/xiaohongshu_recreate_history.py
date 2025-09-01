@@ -1,6 +1,8 @@
 """
 二创历史列表API - Vercel Serverless函数
-Handles: GET /api/xiaohongshu_recreate_history
+Handles: 
+- GET /api/xiaohongshu_recreate_history - 获取历史列表
+- DELETE /api/xiaohongshu_recreate_history/{history_id} - 删除历史记录
 """
 from http.server import BaseHTTPRequestHandler
 import sys
@@ -415,4 +417,98 @@ class handler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps({
                 'success': False,
                 'error': str(e)
+            }).encode('utf-8'))
+    
+    def do_DELETE(self):
+        """处理删除二创历史记录请求"""
+        try:
+            # 初始化数据库
+            db.init_database()
+            
+            # 从URL路径中提取history_id
+            # URL格式: /api/xiaohongshu_recreate_history/{history_id}
+            path_parts = self.path.split('/')
+            history_id = None
+            
+            # 查找history_id在路径中的位置
+            for i, part in enumerate(path_parts):
+                if part == 'xiaohongshu_recreate_history' and i + 1 < len(path_parts):
+                    potential_history_id = path_parts[i + 1].split('?')[0]  # 去除查询参数
+                    if potential_history_id and potential_history_id.isdigit():
+                        history_id = int(potential_history_id)
+                        break
+            
+            if not history_id:
+                self.send_response(400)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    'success': False,
+                    'error': '缺少历史记录ID或ID格式错误'
+                }).encode('utf-8'))
+                return
+            
+            # 解析Cookie进行认证
+            cookies = {}
+            cookie_header = self.headers.get('Cookie', '')
+            if cookie_header:
+                for item in cookie_header.split(';'):
+                    if '=' in item:
+                        key, value = item.strip().split('=', 1)
+                        cookies[key] = urllib.parse.unquote(value)
+            
+            req_data = {
+                'method': 'DELETE',
+                'body': {},
+                'cookies': cookies,
+                'headers': dict(self.headers)
+            }
+            
+            # 检查用户认证
+            user_id = require_auth(req_data)
+            if not user_id:
+                self.send_response(401)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    'success': False,
+                    'error': '请先登录'
+                }).encode('utf-8'))
+                return
+            
+            # 删除二创历史记录
+            success = db.delete_recreate_history(user_id, history_id)
+            
+            if success:
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.send_header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+                self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Cookie')
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    'success': True,
+                    'message': f'历史记录 {history_id} 删除成功'
+                }, ensure_ascii=False).encode('utf-8'))
+            else:
+                self.send_response(404)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    'success': False,
+                    'error': '历史记录不存在或删除失败'
+                }).encode('utf-8'))
+        
+        except Exception as e:
+            print(f"Error in delete recreate history API: {e}")
+            self.send_response(500)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                'success': False,
+                'error': f'删除历史记录失败: {str(e)}'
             }).encode('utf-8'))

@@ -3,6 +3,7 @@
 Handles: 
 - POST /api/xiaohongshu_notes_list - 采集笔记
 - GET /api/xiaohongshu_notes_list - 获取笔记列表
+- DELETE /api/xiaohongshu_notes_list/{note_id} - 删除笔记
 """
 from http.server import BaseHTTPRequestHandler
 import sys
@@ -258,4 +259,98 @@ class handler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps({
                 'success': False,
                 'error': f'获取笔记列表失败: {str(e)}'
+            }).encode('utf-8'))
+    
+    def do_DELETE(self):
+        """处理删除笔记请求"""
+        try:
+            # 初始化数据库
+            db.init_database()
+            
+            # 从URL路径中提取note_id
+            # URL格式: /api/xiaohongshu_notes_list/{note_id}
+            path_parts = self.path.split('/')
+            note_id = None
+            
+            # 查找note_id在路径中的位置
+            for i, part in enumerate(path_parts):
+                if part == 'xiaohongshu_notes_list' and i + 1 < len(path_parts):
+                    potential_note_id = path_parts[i + 1].split('?')[0]  # 去除查询参数
+                    if potential_note_id:
+                        note_id = potential_note_id
+                        break
+            
+            if not note_id:
+                self.send_response(400)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    'success': False,
+                    'error': '缺少笔记ID'
+                }).encode('utf-8'))
+                return
+            
+            # 解析Cookie进行认证
+            cookies = {}
+            cookie_header = self.headers.get('Cookie', '')
+            if cookie_header:
+                for item in cookie_header.split(';'):
+                    if '=' in item:
+                        key, value = item.strip().split('=', 1)
+                        cookies[key] = urllib.parse.unquote(value)
+            
+            req_data = {
+                'method': 'DELETE',
+                'body': {},
+                'cookies': cookies,
+                'headers': dict(self.headers)
+            }
+            
+            # 检查用户认证
+            user_id = require_auth(req_data)
+            if not user_id:
+                self.send_response(401)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    'success': False,
+                    'error': '请先登录'
+                }).encode('utf-8'))
+                return
+            
+            # 删除笔记
+            success = db.delete_note(user_id, note_id)
+            
+            if success:
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.send_header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+                self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Cookie')
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    'success': True,
+                    'message': f'笔记 {note_id} 删除成功'
+                }, ensure_ascii=False).encode('utf-8'))
+            else:
+                self.send_response(404)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    'success': False,
+                    'error': '笔记不存在或删除失败'
+                }).encode('utf-8'))
+        
+        except Exception as e:
+            print(f"Error in delete note API: {e}")
+            self.send_response(500)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                'success': False,
+                'error': f'删除笔记失败: {str(e)}'
             }).encode('utf-8'))
