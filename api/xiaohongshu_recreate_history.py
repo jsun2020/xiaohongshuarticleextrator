@@ -425,18 +425,19 @@ class handler(BaseHTTPRequestHandler):
             # 初始化数据库
             db.init_database()
             
-            # 从URL路径中提取history_id
-            # URL格式: /api/xiaohongshu_recreate_history/{history_id}
-            path_parts = self.path.split('/')
-            history_id = None
+            # 从查询参数中提取history_id
+            # URL格式: /api/xiaohongshu_recreate_history?history_id={history_id}
+            query_params = {}
+            if self.path and '?' in self.path:
+                query_string = self.path.split('?', 1)[1]
+                query_params = parse_qs(query_string)
             
-            # 查找history_id在路径中的位置
-            for i, part in enumerate(path_parts):
-                if part == 'xiaohongshu_recreate_history' and i + 1 < len(path_parts):
-                    potential_history_id = path_parts[i + 1].split('?')[0]  # 去除查询参数
-                    if potential_history_id and potential_history_id.isdigit():
-                        history_id = int(potential_history_id)
-                        break
+            history_id = None
+            if 'history_id' in query_params:
+                try:
+                    history_id = int(query_params['history_id'][0])
+                except (ValueError, IndexError):
+                    history_id = None
             
             if not history_id:
                 self.send_response(400)

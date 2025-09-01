@@ -267,18 +267,16 @@ class handler(BaseHTTPRequestHandler):
             # 初始化数据库
             db.init_database()
             
-            # 从URL路径中提取note_id
-            # URL格式: /api/xiaohongshu_notes_list/{note_id}
-            path_parts = self.path.split('/')
-            note_id = None
+            # 从查询参数中提取note_id
+            # URL格式: /api/xiaohongshu_notes_list?note_id={note_id}
+            query_params = {}
+            if self.path and '?' in self.path:
+                query_string = self.path.split('?', 1)[1]
+                query_params = parse_qs(query_string)
             
-            # 查找note_id在路径中的位置
-            for i, part in enumerate(path_parts):
-                if part == 'xiaohongshu_notes_list' and i + 1 < len(path_parts):
-                    potential_note_id = path_parts[i + 1].split('?')[0]  # 去除查询参数
-                    if potential_note_id:
-                        note_id = potential_note_id
-                        break
+            note_id = None
+            if 'note_id' in query_params:
+                note_id = query_params['note_id'][0]
             
             if not note_id:
                 self.send_response(400)
