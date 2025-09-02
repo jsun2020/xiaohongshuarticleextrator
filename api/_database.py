@@ -537,35 +537,19 @@ class DatabaseManager:
         cursor = conn.cursor()
         
         try:
-            # 验证笔记属于该用户
+            # 删除笔记（只需要删除notes表中的记录，因为所有数据都存储在这一个表中）
             if self.use_postgres:
-                cursor.execute("SELECT id FROM notes WHERE user_id = %s AND note_id = %s", (user_id, note_id))
-            else:
-                cursor.execute("SELECT id FROM notes WHERE user_id = ? AND note_id = ?", (user_id, note_id))
-                
-            if not cursor.fetchone():
-                print(f"❌ 笔记 {note_id} 不存在或不属于用户 {user_id}")
-                return False
-            
-            # 删除相关数据
-            if self.use_postgres:
-                cursor.execute("DELETE FROM note_tags WHERE note_id = %s", (note_id,))
-                cursor.execute("DELETE FROM note_images WHERE note_id = %s", (note_id,))
-                cursor.execute("DELETE FROM note_videos WHERE note_id = %s", (note_id,))
-                cursor.execute("DELETE FROM note_stats WHERE note_id = %s", (note_id,))
-                cursor.execute("DELETE FROM note_authors WHERE note_id = %s", (note_id,))
                 cursor.execute("DELETE FROM notes WHERE user_id = %s AND note_id = %s", (user_id, note_id))
             else:
-                cursor.execute("DELETE FROM note_tags WHERE note_id = ?", (note_id,))
-                cursor.execute("DELETE FROM note_images WHERE note_id = ?", (note_id,))
-                cursor.execute("DELETE FROM note_videos WHERE note_id = ?", (note_id,))
-                cursor.execute("DELETE FROM note_stats WHERE note_id = ?", (note_id,))
-                cursor.execute("DELETE FROM note_authors WHERE note_id = ?", (note_id,))
                 cursor.execute("DELETE FROM notes WHERE user_id = ? AND note_id = ?", (user_id, note_id))
             
-            conn.commit()
-            print(f"✅ 用户 {user_id} 的笔记 {note_id} 删除成功")
-            return True
+            if cursor.rowcount > 0:
+                conn.commit()
+                print(f"✅ 用户 {user_id} 的笔记 {note_id} 删除成功")
+                return True
+            else:
+                print(f"❌ 笔记 {note_id} 不存在或不属于用户 {user_id}")
+                return False
             
         except Exception as e:
             print(f"❌ 删除笔记失败: {str(e)}")
