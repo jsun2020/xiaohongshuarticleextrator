@@ -1,8 +1,9 @@
 """
-检查登录状态API + 图片代理 - Vercel Serverless函数
+检查登录状态API + 图片代理 + 管理员统计 - Vercel Serverless函数
 支持:
 - GET /api/auth_status - 检查登录状态
 - GET /api/auth_status?proxy_url=<image_url> - 图片代理（绕过防盗链）
+- GET /api/auth_status?admin_stats=true - 管理员统计数据
 """
 import sys
 import os
@@ -38,6 +39,12 @@ class handler(BaseHTTPRequestHandler):
             proxy_url = query_params.get('proxy_url')
             if proxy_url and len(proxy_url) > 0:
                 self.handle_image_proxy(urllib.parse.unquote(proxy_url[0]))
+                return
+            
+            # 检查是否是管理员统计请求
+            admin_stats = query_params.get('admin_stats')
+            if admin_stats and admin_stats[0].lower() == 'true':
+                self.handle_admin_stats()
                 return
             
             # 否则处理登录状态检查
@@ -202,3 +209,109 @@ class handler(BaseHTTPRequestHandler):
         self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Cookie')
         self.end_headers()
         self.wfile.write(json.dumps(data, ensure_ascii=False).encode('utf-8'))
+    
+    def handle_admin_stats(self):
+        """处理管理员统计数据请求"""
+        try:
+            # 解析Cookie进行认证
+            cookies = {}
+            cookie_header = self.headers.get('Cookie', '')
+            if cookie_header:
+                for item in cookie_header.split(';'):
+                    if '=' in item:
+                        key, value = item.strip().split('=', 1)
+                        cookies[key] = urllib.parse.unquote(value)
+            
+            req_data = {
+                'method': 'GET',
+                'body': {},
+                'cookies': cookies,
+                'headers': dict(self.headers)
+            }
+            
+            # 检查用户认证
+            user_id = require_auth(req_data)
+            if not user_id:
+                self.send_json_response({
+                    'success': False,
+                    'error': '请先登录'
+                }, 401)
+                return
+            
+            # 简单的管理员检查 - 这里假设用户ID为1的是管理员
+            # 实际项目中应该在数据库中添加is_admin字段
+            if user_id != 1:
+                self.send_json_response({
+                    'success': False,
+                    'error': '权限不足，仅管理员可访问'
+                }, 403)
+                return
+            
+            # 查询统计数据
+            db.init_database()
+            conn = db.get_connection()
+            cursor = conn.cursor()
+            
+            stats = {}
+            
+            try:
+                if db.use_postgres:
+                    # PostgreSQL查询
+                    cursor.execute("SELECT COUNT(*) FROM users")
+                    stats['total_users'] = cursor.fetchone()[0]
+                    
+                    cursor.execute("SELECT COUNT(*) FROM users WHERE created_at > NOW() - INTERVAL '24 hours'")
+                    stats['new_users_today'] = cursor.fetchone()[0]
+                    
+                    cursor.execute("SELECT COUNT(*) FROM notes")
+                    stats['total_notes'] = cursor.fetchone()[0]
+                    
+                    cursor.execute("SELECT COUNT(*) FROM notes WHERE created_at > NOW() - INTERVAL '24 hours'")
+                    stats['notes_today'] = cursor.fetchone()[0]
+                    
+                    cursor.execute("SELECT COUNT(*) FROM recreate_history")
+                    stats['total_recreations'] = cursor.fetchone()[0]
+                    
+                    cursor.execute("SELECT COUNT(*) FROM recreate_history WHERE created_at > NOW() - INTERVAL '24 hours'")
+                    stats['recreations_today'] = cursor.fetchone()[0]
+                    
+                    cursor.execute("SELECT COUNT(DISTINCT user_id) FROM notes WHERE created_at > NOW() - INTERVAL '24 hours'")
+                    stats['active_users_today'] = cursor.fetchone()[0]
+                    
+                else:
+                    # SQLite查询
+                    cursor.execute("SELECT COUNT(*) FROM users")
+                    stats['total_users'] = cursor.fetchone()[0]
+                    
+                    cursor.execute("SELECT COUNT(*) FROM users WHERE created_at > datetime('now', '-1 day')")
+                    stats['new_users_today'] = cursor.fetchone()[0]
+                    
+                    cursor.execute("SELECT COUNT(*) FROM notes")
+                    stats['total_notes'] = cursor.fetchone()[0]
+                    
+                    cursor.execute("SELECT COUNT(*) FROM notes WHERE created_at > datetime('now', '-1 day')")
+                    stats['notes_today'] = cursor.fetchone()[0]
+                    
+                    cursor.execute("SELECT COUNT(*) FROM recreate_history")
+                    stats['total_recreations'] = cursor.fetchone()[0]
+                    
+                    cursor.execute("SELECT COUNT(*) FROM recreate_history WHERE created_at > datetime('now', '-1 day')")
+                    stats['recreations_today'] = cursor.fetchone()[0]
+                    
+                    cursor.execute("SELECT COUNT(DISTINCT user_id) FROM notes WHERE created_at > datetime('now', '-1 day')")
+                    stats['active_users_today'] = cursor.fetchone()[0]
+                
+                self.send_json_response({
+                    'success': True,
+                    'data': stats
+                }, 200)
+                
+            finally:
+                conn.close()
+                
+        except Exception as e:
+            print(f"获取管理员统计数据失败: {e}")
+            self.send_json_response({
+                'success': False,
+                'error': f'获取统计数据失败: {str(e)}'
+            }, 500)

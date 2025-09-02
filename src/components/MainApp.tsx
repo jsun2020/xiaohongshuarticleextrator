@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { authAPI } from '@/lib/api'
-import { LogOut, User, Settings } from 'lucide-react'
+import { LogOut, User, Settings, Shield } from 'lucide-react'
 import DataCollection from '@/components/DataCollection'
 import NotesManagement from '@/components/NotesManagement'
 import RecreateHistory from '@/components/RecreateHistory'
@@ -65,9 +65,27 @@ export default function MainApp({ user }: MainAppProps) {
                 设置
               </Button>
               
+              {/* 管理员专用按钮 - 仅用户ID为1时显示 */}
+              {user.id === 1 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => router.push('/admin')}
+                  className="border-orange-300 text-orange-700 hover:bg-orange-50"
+                >
+                  <Shield className="h-4 w-4 mr-2" />
+                  管理员
+                </Button>
+              )}
+              
               <div className="flex items-center space-x-2 text-sm text-gray-600">
                 <User className="h-4 w-4" />
                 <span>{user.nickname || user.username}</span>
+                {user.id === 1 && (
+                  <span className="ml-1 px-2 py-1 text-xs bg-orange-100 text-orange-800 rounded-full">
+                    管理员
+                  </span>
+                )}
               </div>
               
               <Button
