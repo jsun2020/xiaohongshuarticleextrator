@@ -3,8 +3,9 @@
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Users, FileText, Bot, Activity, Calendar, TrendingUp, RefreshCw } from 'lucide-react'
+import { Users, FileText, Bot, Activity, Calendar, TrendingUp, RefreshCw, Home } from 'lucide-react'
 import { authAPI } from '@/lib/api'
+import { useRouter } from 'next/navigation'
 
 interface AdminStats {
   total_users: number
@@ -20,6 +21,7 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState<AdminStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const router = useRouter()
 
   const fetchStats = async () => {
     try {
@@ -98,10 +100,21 @@ export default function AdminDashboard() {
               <h1 className="text-3xl font-bold text-gray-900">管理员仪表板</h1>
               <p className="text-gray-600 mt-2">网站运营数据统计</p>
             </div>
-            <Button onClick={fetchStats} variant="outline" size="sm">
-              <RefreshCw className="h-4 w-4 mr-2" />
-              刷新数据
-            </Button>
+            <div className="flex items-center space-x-3">
+              <Button 
+                onClick={() => router.push('/')} 
+                variant="outline" 
+                size="sm"
+                className="border-gray-300 text-gray-700 hover:bg-gray-50"
+              >
+                <Home className="h-4 w-4 mr-2" />
+                返回首页
+              </Button>
+              <Button onClick={fetchStats} variant="outline" size="sm">
+                <RefreshCw className="h-4 w-4 mr-2" />
+                刷新数据
+              </Button>
+            </div>
           </div>
         </div>
 
