@@ -117,7 +117,7 @@ class handler(BaseHTTPRequestHandler):
             history_id = data['history_id']
             title = data['title']
             content = data['content']
-            model = data.get('model', 'gemini-2.0-flash-exp')
+            model = data.get('model', 'gemini-2.5-flash-image-preview')
             
             print(f"[VISUAL_STORY DEBUG] Processing: history_id={history_id}, model={model}")
             
@@ -149,7 +149,7 @@ class handler(BaseHTTPRequestHandler):
                     from gemini_visual_story import create_gemini_client
                     
                     print(f"[VISUAL_STORY DEBUG] Creating Gemini client...")
-                    gemini_client = create_gemini_client()
+                    gemini_client = create_gemini_client()  # Will read GEMINI_API_KEY from environment
                     
                     if not gemini_client:
                         print(f"[VISUAL_STORY DEBUG] Failed to create Gemini client")

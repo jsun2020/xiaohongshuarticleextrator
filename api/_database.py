@@ -159,7 +159,7 @@ class DatabaseManager:
                         cover_card_data TEXT,
                         content_cards_data TEXT,
                         html_content TEXT,
-                        model_used VARCHAR(50) DEFAULT 'gemini-2.0-flash-exp',
+                        model_used VARCHAR(50) DEFAULT 'gemini-2.5-flash-image-preview',
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         FOREIGN KEY (user_id) REFERENCES users (id),
                         FOREIGN KEY (history_id) REFERENCES recreate_history (id)
@@ -245,7 +245,7 @@ class DatabaseManager:
                         cover_card_data TEXT,
                         content_cards_data TEXT,
                         html_content TEXT,
-                        model_used TEXT DEFAULT 'gemini-2.0-flash-exp',
+                        model_used TEXT DEFAULT 'gemini-2.5-flash-image-preview',
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         FOREIGN KEY (user_id) REFERENCES users (id),
                         FOREIGN KEY (history_id) REFERENCES recreate_history (id)

@@ -18,7 +18,7 @@ class GeminiVisualStoryGenerator:
     def __init__(self, api_key: str):
         self.api_key = api_key
         genai.configure(api_key=api_key)
-        self.model = genai.GenerativeModel('gemini-2.0-flash-exp')
+        self.model = genai.GenerativeModel('gemini-2.5-flash-image-preview')
         
     def test_connection(self) -> Dict:
         """Test Gemini API connection"""
@@ -496,8 +496,13 @@ class GeminiVisualStoryGenerator:
         return '\n'.join([self._generate_card_html(card) for card in cards])
 
 
-def create_gemini_client(api_key: str) -> GeminiVisualStoryGenerator:
+def create_gemini_client(api_key: str = None) -> GeminiVisualStoryGenerator:
     """Create a Gemini client instance"""
+    if not api_key:
+        # Read from environment variable
+        api_key = os.environ.get('GEMINI_API_KEY')
+        if not api_key:
+            raise ValueError("GEMINI_API_KEY environment variable not set")
     return GeminiVisualStoryGenerator(api_key)
 
 
