@@ -148,6 +148,23 @@ class DatabaseManager:
                         UNIQUE(user_id, usage_type)
                     )
                 ''')
+                
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS visual_story_history (
+                        id SERIAL PRIMARY KEY,
+                        user_id INTEGER NOT NULL,
+                        history_id INTEGER NOT NULL,
+                        title TEXT NOT NULL,
+                        content TEXT NOT NULL,
+                        cover_card_data TEXT,
+                        content_cards_data TEXT,
+                        html_content TEXT,
+                        model_used VARCHAR(50) DEFAULT 'gemini-2.0-flash-exp',
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (user_id) REFERENCES users (id),
+                        FOREIGN KEY (history_id) REFERENCES recreate_history (id)
+                    )
+                ''')
             else:
                 # SQLite建表语句
                 cursor.execute('''
@@ -215,6 +232,23 @@ class DatabaseManager:
                         last_used TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         FOREIGN KEY (user_id) REFERENCES users (id),
                         UNIQUE(user_id, usage_type)
+                    )
+                ''')
+                
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS visual_story_history (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        user_id INTEGER NOT NULL,
+                        history_id INTEGER NOT NULL,
+                        title TEXT NOT NULL,
+                        content TEXT NOT NULL,
+                        cover_card_data TEXT,
+                        content_cards_data TEXT,
+                        html_content TEXT,
+                        model_used TEXT DEFAULT 'gemini-2.0-flash-exp',
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (user_id) REFERENCES users (id),
+                        FOREIGN KEY (history_id) REFERENCES recreate_history (id)
                     )
                 ''')
             

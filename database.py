@@ -171,6 +171,37 @@ class XiaohongshuDatabase:
                 )
             ''')
             
+            # 创建视觉故事历史表
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS visual_story_history (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    history_id INTEGER NOT NULL,
+                    title TEXT NOT NULL,
+                    content TEXT NOT NULL,
+                    cover_card_data TEXT,
+                    content_cards_data TEXT,
+                    html_content TEXT,
+                    model_used TEXT DEFAULT 'gemini-2.0-flash-exp',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users (id),
+                    FOREIGN KEY (history_id) REFERENCES recreate_history (id)
+                )
+            ''')
+            
+            # 创建用户使用统计表
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS user_usage (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    usage_type TEXT NOT NULL,
+                    usage_count INTEGER DEFAULT 0,
+                    last_used TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users (id),
+                    UNIQUE(user_id, usage_type)
+                )
+            ''')
+            
             conn.commit()
             print("✅ 数据库表初始化完成")
     
@@ -682,6 +713,142 @@ class XiaohongshuDatabase:
                 
         except Exception as e:
             print(f"❌ 删除二创历史失败: {str(e)}")
+            return False
+    
+    def save_visual_story_history(self, user_id: int, history_data: Dict) -> bool:
+        """保存用户的视觉故事历史记录"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                
+                cursor.execute('''
+                    INSERT INTO visual_story_history 
+                    (user_id, history_id, title, content, cover_card_data, content_cards_data, 
+                     html_content, model_used, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    user_id,
+                    history_data['history_id'],
+                    history_data['title'],
+                    history_data['content'],
+                    history_data['cover_card_data'],
+                    history_data['content_cards_data'],
+                    history_data['html_content'],
+                    history_data['model_used'],
+                    history_data['created_at']
+                ))
+                
+                conn.commit()
+                print(f"✅ 用户 {user_id} 的视觉故事历史记录保存成功")
+                return True
+                
+        except Exception as e:
+            print(f"❌ 保存视觉故事历史失败: {str(e)}")
+            return False
+    
+    def get_visual_story_history(self, user_id: int, limit: int = 50, offset: int = 0) -> List[Dict]:
+        """获取用户的视觉故事历史列表"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+                
+                query = '''
+                    SELECT 
+                        vs.id,
+                        vs.history_id,
+                        vs.title,
+                        vs.content,
+                        vs.model_used,
+                        vs.created_at,
+                        rh.new_title as source_title
+                    FROM visual_story_history vs
+                    LEFT JOIN recreate_history rh ON vs.history_id = rh.id AND rh.user_id = vs.user_id
+                    WHERE vs.user_id = ?
+                    ORDER BY vs.created_at DESC
+                    LIMIT ? OFFSET ?
+                '''
+                
+                cursor.execute(query, (user_id, limit, offset))
+                history_records = cursor.fetchall()
+                
+                result = []
+                for record in history_records:
+                    history_dict = {
+                        'id': record['id'],
+                        'history_id': record['history_id'],
+                        'title': record['title'],
+                        'content': record['content'][:200] + '...' if len(record['content']) > 200 else record['content'],
+                        'model_used': record['model_used'],
+                        'created_at': record['created_at'],
+                        'source_title': record['source_title']
+                    }
+                    result.append(history_dict)
+                
+                return result
+                
+        except Exception as e:
+            print(f"❌ 获取视觉故事历史失败: {str(e)}")
+            return []
+    
+    def get_visual_story_history_count(self, user_id: int) -> int:
+        """获取用户的视觉故事历史总数"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT COUNT(*) FROM visual_story_history WHERE user_id = ?", (user_id,))
+                return cursor.fetchone()[0]
+        except Exception as e:
+            print(f"❌ 获取视觉故事历史总数失败: {str(e)}")
+            return 0
+    
+    def delete_visual_story_history(self, user_id: int, story_id: int) -> bool:
+        """删除用户的视觉故事历史记录"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute("DELETE FROM visual_story_history WHERE user_id = ? AND id = ?", (user_id, story_id))
+                if cursor.rowcount > 0:
+                    conn.commit()
+                    print(f"✅ 用户 {user_id} 的视觉故事历史记录 {story_id} 删除成功")
+                    return True
+                else:
+                    print(f"❌ 视觉故事历史记录 {story_id} 不存在或不属于用户 {user_id}")
+                    return False
+                
+        except Exception as e:
+            print(f"❌ 删除视觉故事历史失败: {str(e)}")
+            return False
+    
+    def get_user_usage_count(self, user_id: int, usage_type: str) -> int:
+        """获取用户使用次数"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT usage_count FROM user_usage WHERE user_id = ? AND usage_type = ?", (user_id, usage_type))
+                result = cursor.fetchone()
+                return result[0] if result else 0
+        except Exception as e:
+            print(f"❌ 获取用户使用次数失败: {str(e)}")
+            return 0
+    
+    def increment_user_usage(self, user_id: int, usage_type: str) -> bool:
+        """增加用户使用次数"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                
+                # 使用INSERT OR REPLACE来处理计数器递增
+                cursor.execute('''
+                    INSERT OR REPLACE INTO user_usage (user_id, usage_type, usage_count, last_used)
+                    VALUES (?, ?, COALESCE((SELECT usage_count FROM user_usage WHERE user_id = ? AND usage_type = ?), 0) + 1, CURRENT_TIMESTAMP)
+                ''', (user_id, usage_type, user_id, usage_type))
+                
+                conn.commit()
+                return True
+                
+        except Exception as e:
+            print(f"❌ 增加用户使用次数失败: {str(e)}")
             return False
 
 # 全局数据库实例

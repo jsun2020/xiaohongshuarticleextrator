@@ -127,6 +127,23 @@ export const healthAPI = {
     api.get('/health'),
 }
 
+// 视觉故事API
+export const visualStoryAPI = {
+  generate: (data: { 
+    history_id: number; 
+    title: string; 
+    content: string; 
+    model?: string;
+  }) =>
+    api.post('/visual-story/generate', data),
+  
+  getHistory: (limit = 20, offset = 0) =>
+    api.get(`/visual-story/history?limit=${limit}&offset=${offset}`),
+  
+  deleteHistory: (storyId: number) =>
+    api.delete(`/visual-story/history/${storyId}`),
+}
+
 // 图片代理工具函数
 export const getProxiedImageUrl = (originalUrl: string): string => {
   // 检查是否是小红书图片URL

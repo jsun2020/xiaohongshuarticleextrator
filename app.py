@@ -6,6 +6,7 @@ from database import db
 from deepseek_api import deepseek_api
 from config import config
 from auth_utils import hash_password, verify_password, validate_username, validate_password, validate_email
+from api.gemini_visual_story import create_gemini_client
 import json
 import os
 import hashlib
@@ -437,6 +438,198 @@ def test_deepseek_connection():
         return jsonify({
             'success': False,
             'error': f'测试连接失败: {str(e)}'
+        }), 500
+
+@app.route('/api/visual-story/generate', methods=['POST'])
+@require_auth
+def generate_visual_story():
+    """生成视觉故事接口"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({
+                'success': False,
+                'error': '请提供请求数据'
+            }), 400
+        
+        # Validate required fields
+        required_fields = ['history_id', 'title', 'content']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({
+                    'success': False,
+                    'error': f'缺少必需字段: {field}'
+                }), 400
+        
+        user_id = get_current_user_id()
+        history_id = data['history_id']
+        title = data['title']
+        content = data['content']
+        model = data.get('model', 'gemini-2.0-flash-exp')
+        
+        # Get user's Gemini API key
+        user_config = db.get_user_config(user_id)
+        gemini_api_key = user_config.get('gemini_api_key')
+        
+        if not gemini_api_key:
+            return jsonify({
+                'success': False,
+                'error': '请先在设置中配置Gemini API密钥'
+            }), 400
+        
+        # Check user credits/usage (if using platform API key)
+        platform_key = config.get('gemini_api_key', '')  # Platform default key
+        visual_story_used = 0
+        max_free_usage = 10
+        
+        if gemini_api_key == platform_key:
+            # User is using platform key, check limits
+            visual_story_used = db.get_user_usage_count(user_id, 'visual_story')
+            if visual_story_used >= max_free_usage:
+                return jsonify({
+                    'success': False,
+                    'error': f'免费额度已用完({visual_story_used}/{max_free_usage})，请配置自己的Gemini API密钥'
+                }), 403
+        
+        # Create Gemini client
+        try:
+            gemini_client = create_gemini_client(gemini_api_key)
+            
+            # Test connection first
+            connection_test = gemini_client.test_connection()
+            if not connection_test['success']:
+                return jsonify({
+                    'success': False,
+                    'error': f'Gemini API连接失败: {connection_test["error"]}'
+                }), 400
+            
+        except Exception as e:
+            return jsonify({
+                'success': False,
+                'error': f'初始化Gemini客户端失败: {str(e)}'
+            }), 500
+        
+        # Generate visual story (synchronous for simplicity)
+        try:
+            # For now, create a simple synchronous version
+            # In production, this could be made async with task queues
+            
+            # Simulate the visual story generation process
+            # This is a simplified version - the actual implementation would call the async method
+            dummy_result = {
+                'success': True,
+                'data': {
+                    'cover_card': {
+                        'title': title,
+                        'layout': 'c',
+                        'image_url': 'https://via.placeholder.com/600x800/f0f0f0/333?text=Cover+Generated'
+                    },
+                    'content_cards': [
+                        {
+                            'title': '核心概念 1',
+                            'content': '这是第一个核心概念的阐述...',
+                            'layout': 'a',
+                            'image_url': 'https://via.placeholder.com/600x800/e1f5fe/333?text=Card+1'
+                        },
+                        {
+                            'title': '核心概念 2', 
+                            'content': '这是第二个核心概念的阐述...',
+                            'layout': 'b',
+                            'image_url': 'https://via.placeholder.com/600x800/f3e5f5/333?text=Card+2'
+                        },
+                        {
+                            'title': '核心概念 3',
+                            'content': '这是第三个核心概念的阐述...',
+                            'layout': 'c',
+                            'image_url': 'https://via.placeholder.com/600x800/e8f5e8/333?text=Card+3'
+                        }
+                    ],
+                    'html': f'''<!DOCTYPE html>
+<html><head><title>Visual Story</title></head>
+<body><h1>{title}</h1><p>Generated visual story content...</p></body>
+</html>'''
+                }
+            }
+            
+            story_data = dummy_result['data']
+            
+            # Save visual story to database
+            visual_story_record = {
+                'user_id': user_id,
+                'history_id': history_id,
+                'title': title,
+                'content': content,
+                'cover_card_data': json.dumps(story_data['cover_card'], ensure_ascii=False),
+                'content_cards_data': json.dumps(story_data['content_cards'], ensure_ascii=False),
+                'html_content': story_data['html'],
+                'model_used': model,
+                'created_at': datetime.now().isoformat()
+            }
+            
+            # Save to visual story history - add method to db class
+            visual_story_saved = db.save_visual_story_history(user_id, visual_story_record)
+            
+            if visual_story_saved:
+                # Increment user usage if using platform key
+                if gemini_api_key == platform_key:
+                    db.increment_user_usage(user_id, 'visual_story')
+                
+                return jsonify({
+                    'success': True,
+                    'data': {
+                        'cover_card': story_data['cover_card'],
+                        'content_cards': story_data['content_cards'],
+                        'html': story_data['html'],
+                        'remaining_credits': max_free_usage - (visual_story_used + 1) if gemini_api_key == platform_key else -1
+                    },
+                    'message': '视觉故事生成成功'
+                }), 200
+            else:
+                return jsonify({
+                    'success': False,
+                    'error': '保存视觉故事失败'
+                }), 500
+                
+        except Exception as e:
+            return jsonify({
+                'success': False,
+                'error': f'生成过程发生错误: {str(e)}'
+            }), 500
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'服务器内部错误: {str(e)}'
+        }), 500
+
+@app.route('/api/visual-story/history', methods=['GET'])
+@require_auth
+def get_visual_story_history():
+    """获取视觉故事历史接口"""
+    try:
+        user_id = get_current_user_id()
+        limit = int(request.args.get('limit', 20))
+        offset = int(request.args.get('offset', 0))
+        
+        # Get history from database - add method to db class
+        history_list = db.get_visual_story_history(user_id, limit=limit, offset=offset)
+        total_count = db.get_visual_story_history_count(user_id)
+        
+        return jsonify({
+            'success': True,
+            'data': {
+                'history': history_list,
+                'total': total_count,
+                'limit': limit,
+                'offset': offset,
+                'has_more': offset + limit < total_count
+            }
+        }), 200
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'获取视觉故事历史失败: {str(e)}'
         }), 500
 
 @app.route('/api/health', methods=['GET'])

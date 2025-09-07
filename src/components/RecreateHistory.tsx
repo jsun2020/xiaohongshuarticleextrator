@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { recreateAPI } from '@/lib/api'
 import { formatDate } from '@/lib/utils'
-import { Loader2, RefreshCw, Trash2, Copy, History, ArrowRight } from 'lucide-react'
+import { Loader2, RefreshCw, Trash2, Copy, History, ArrowRight, Wand2 } from 'lucide-react'
+import VisualStoryGenerator from '@/components/VisualStoryGenerator'
 
 // 已修正类型定义
 interface RecreateHistoryItem {
@@ -28,6 +29,8 @@ export default function RecreateHistory() {
   const [hasMore, setHasMore] = useState(true)
   const [total, setTotal] = useState(0)
   const [selectedItem, setSelectedItem] = useState<RecreateHistoryItem | null>(null)
+  const [showVisualStoryGenerator, setShowVisualStoryGenerator] = useState(false)
+  const [visualStoryItem, setVisualStoryItem] = useState<RecreateHistoryItem | null>(null)
 
   useEffect(() => {
     loadHistory()
@@ -110,6 +113,11 @@ export default function RecreateHistory() {
     navigator.clipboard.writeText(text)
   }
 
+  const handleGenerateVisualStory = (item: RecreateHistoryItem) => {
+    setVisualStoryItem(item)
+    setShowVisualStoryGenerator(true)
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -190,17 +198,32 @@ export default function RecreateHistory() {
                           {formatDate(item.created_at)}
                         </p>
                       </div>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleDelete(item.id)
-                        }}
-                        className="ml-2 text-red-500 hover:text-red-700"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
+                      <div className="flex space-x-1 ml-2">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleGenerateVisualStory(item)
+                          }}
+                          className="text-purple-600 hover:text-purple-700"
+                          title="生成图文故事"
+                        >
+                          <Wand2 className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleDelete(item.id)
+                          }}
+                          className="text-red-500 hover:text-red-700"
+                          title="删除记录"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -233,8 +256,18 @@ export default function RecreateHistory() {
               <div className="space-y-6">
                 <div className="flex items-center justify-between">
                   <h3 className="font-semibold text-lg">内容对比</h3>
-                  <div className="text-sm text-gray-500">
-                    创建时间: {formatDate(selectedItem.created_at)}
+                  <div className="flex items-center space-x-4">
+                    <Button
+                      onClick={() => handleGenerateVisualStory(selectedItem)}
+                      className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
+                      size="sm"
+                    >
+                      <Wand2 className="h-4 w-4 mr-2" />
+                      生成图文故事
+                    </Button>
+                    <div className="text-sm text-gray-500">
+                      创建时间: {formatDate(selectedItem.created_at)}
+                    </div>
                   </div>
                 </div>
 
@@ -378,6 +411,13 @@ export default function RecreateHistory() {
           </div>
         </div>
       )}
+      
+      {/* Visual Story Generator Dialog */}
+      <VisualStoryGenerator
+        open={showVisualStoryGenerator}
+        onOpenChange={setShowVisualStoryGenerator}
+        historyItem={visualStoryItem}
+      />
     </div>
   )
 }
