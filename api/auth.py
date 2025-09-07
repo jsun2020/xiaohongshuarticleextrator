@@ -13,6 +13,8 @@ import json
 import hashlib
 import secrets
 import re
+import urllib.parse
+import urllib.request
 from urllib.parse import urlparse, parse_qs
 
 # 认证工具函数
@@ -116,9 +118,27 @@ class handler(BaseHTTPRequestHandler):
             self.send_json_response({'success': False, 'error': f'请求处理失败: {str(e)}'}, 500)
     
     def do_GET(self):
-        """处理GET请求（主要用于status检查）"""
+        """处理GET请求（主要用于status检查、图片代理、管理员统计）"""
         try:
-            if 'status' in self.path:
+            # 解析查询参数
+            parsed_url = urlparse(self.path)
+            query_params = parse_qs(parsed_url.query)
+            
+            # 检查是否是图片代理请求
+            proxy_url = query_params.get('proxy_url')
+            if proxy_url and len(proxy_url) > 0:
+                self.handle_image_proxy(urllib.parse.unquote(proxy_url[0]))
+                return
+            
+            # 检查是否是管理员统计请求
+            admin_stats = query_params.get('admin_stats')
+            if admin_stats and admin_stats[0].lower() == 'true':
+                db.init_database()
+                self.handle_admin_stats()
+                return
+            
+            # 否则处理登录状态检查
+            if 'status' in self.path or query_params.get('action', [''])[0] == 'status':
                 db.init_database()
                 self.handle_status()
             else:
@@ -297,6 +317,206 @@ class handler(BaseHTTPRequestHandler):
                 'success': True,
                 'logged_in': False
             }, 200)
+    
+    def handle_image_proxy(self, image_url):
+        """处理图片代理请求"""
+        try:
+            print(f"[Image Proxy] Proxying image: {image_url}")
+            
+            if not image_url:
+                self.send_response(400)
+                self.send_header('Content-Type', 'text/plain')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(b'URL parameter is missing')
+                return
+            
+            # 设置请求头，伪造 Referer 绕过防盗链
+            headers = {
+                'Referer': 'https://www.xiaohongshu.com/',
+                'Origin': 'https://www.xiaohongshu.com',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+                'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'Sec-Fetch-Dest': 'image',
+                'Sec-Fetch-Mode': 'no-cors',
+                'Sec-Fetch-Site': 'cross-site',
+                'Cache-Control': 'no-cache',
+                'Pragma': 'no-cache'
+            }
+            
+            print(f"[Image Proxy] Request headers: {headers}")
+            
+            # 创建请求
+            request = urllib.request.Request(image_url, headers=headers)
+            
+            # 获取图片
+            with urllib.request.urlopen(request, timeout=20) as response:
+                if response.status == 200:
+                    # 获取内容类型
+                    content_type = response.headers.get('Content-Type', 'image/jpeg')
+                    content_length = response.headers.get('Content-Length')
+                    
+                    # 设置响应头
+                    self.send_response(200)
+                    self.send_header('Content-Type', content_type)
+                    if content_length:
+                        self.send_header('Content-Length', content_length)
+                    
+                    # 设置缓存头
+                    self.send_header('Cache-Control', 'public, max-age=86400')  # 缓存1天
+                    self.send_header('Access-Control-Allow-Origin', '*')
+                    self.end_headers()
+                    
+                    # 流式传输图片数据
+                    while True:
+                        chunk = response.read(8192)
+                        if not chunk:
+                            break
+                        self.wfile.write(chunk)
+                else:
+                    self.send_response(response.status)
+                    self.send_header('Content-Type', 'text/plain')
+                    self.end_headers()
+                    self.wfile.write(f'Failed to fetch image: {response.status}'.encode())
+        
+        except urllib.error.HTTPError as e:
+            print(f"[Image Proxy] HTTP Error {e.code}: {e.reason} for URL: {image_url}")
+            self.send_response(e.code if e.code != 403 else 200)  # Convert 403 to 200 to avoid client errors
+            self.send_header('Content-Type', 'text/plain')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(f'HTTP Error: {e.code} - {e.reason}'.encode())
+        except urllib.error.URLError as e:
+            print(f"[Image Proxy] URL Error: {str(e)} for URL: {image_url}")
+            self.send_response(500)
+            self.send_header('Content-Type', 'text/plain')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(f'URL Error: {str(e)}'.encode())
+        except Exception as e:
+            print(f"[Image Proxy] General Error: {str(e)} for URL: {image_url}")
+            self.send_response(500)
+            self.send_header('Content-Type', 'text/plain')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(f'Error proxying image: {str(e)}'.encode())
+    
+    def handle_admin_stats(self):
+        """处理管理员统计数据请求"""
+        try:
+            # 解析Cookie进行认证
+            cookies = {}
+            cookie_header = self.headers.get('Cookie', '')
+            if cookie_header:
+                for item in cookie_header.split(';'):
+                    if '=' in item:
+                        key, value = item.strip().split('=', 1)
+                        cookies[key] = urllib.parse.unquote(value)
+            
+            req_data = {
+                'method': 'GET',
+                'body': {},
+                'cookies': cookies,
+                'headers': dict(self.headers)
+            }
+            
+            # 检查用户认证
+            try:
+                from _utils import require_auth
+                user_id = require_auth(req_data)
+            except ImportError:
+                # 如果导入失败，使用简单的cookie检查
+                user_id = cookies.get('user_id')
+                if user_id:
+                    try:
+                        user_id = int(user_id)
+                    except:
+                        user_id = None
+            
+            if not user_id:
+                self.send_json_response({
+                    'success': False,
+                    'error': '请先登录'
+                }, 401)
+                return
+            
+            # 简单的管理员检查 - 这里假设用户ID为1的是管理员
+            if int(user_id) != 1:
+                self.send_json_response({
+                    'success': False,
+                    'error': '权限不足，仅管理员可访问'
+                }, 403)
+                return
+            
+            # 查询统计数据
+            conn = db.get_connection()
+            cursor = conn.cursor()
+            
+            stats = {}
+            
+            try:
+                if db.use_postgres:
+                    # PostgreSQL查询
+                    cursor.execute("SELECT COUNT(*) FROM users")
+                    stats['total_users'] = cursor.fetchone()[0]
+                    
+                    cursor.execute("SELECT COUNT(*) FROM users WHERE created_at > NOW() - INTERVAL '24 hours'")
+                    stats['new_users_today'] = cursor.fetchone()[0]
+                    
+                    cursor.execute("SELECT COUNT(*) FROM notes")
+                    stats['total_notes'] = cursor.fetchone()[0]
+                    
+                    cursor.execute("SELECT COUNT(*) FROM notes WHERE created_at > NOW() - INTERVAL '24 hours'")
+                    stats['notes_today'] = cursor.fetchone()[0]
+                    
+                    cursor.execute("SELECT COUNT(*) FROM recreate_history")
+                    stats['total_recreations'] = cursor.fetchone()[0]
+                    
+                    cursor.execute("SELECT COUNT(*) FROM recreate_history WHERE created_at > NOW() - INTERVAL '24 hours'")
+                    stats['recreations_today'] = cursor.fetchone()[0]
+                    
+                    cursor.execute("SELECT COUNT(DISTINCT user_id) FROM notes WHERE created_at > NOW() - INTERVAL '24 hours'")
+                    stats['active_users_today'] = cursor.fetchone()[0]
+                    
+                else:
+                    # SQLite查询
+                    cursor.execute("SELECT COUNT(*) FROM users")
+                    stats['total_users'] = cursor.fetchone()[0]
+                    
+                    cursor.execute("SELECT COUNT(*) FROM users WHERE created_at > datetime('now', '-1 day')")
+                    stats['new_users_today'] = cursor.fetchone()[0]
+                    
+                    cursor.execute("SELECT COUNT(*) FROM notes")
+                    stats['total_notes'] = cursor.fetchone()[0]
+                    
+                    cursor.execute("SELECT COUNT(*) FROM notes WHERE created_at > datetime('now', '-1 day')")
+                    stats['notes_today'] = cursor.fetchone()[0]
+                    
+                    cursor.execute("SELECT COUNT(*) FROM recreate_history")
+                    stats['total_recreations'] = cursor.fetchone()[0]
+                    
+                    cursor.execute("SELECT COUNT(*) FROM recreate_history WHERE created_at > datetime('now', '-1 day')")
+                    stats['recreations_today'] = cursor.fetchone()[0]
+                    
+                    cursor.execute("SELECT COUNT(DISTINCT user_id) FROM notes WHERE created_at > datetime('now', '-1 day')")
+                    stats['active_users_today'] = cursor.fetchone()[0]
+                
+                self.send_json_response({
+                    'success': True,
+                    'data': stats
+                }, 200)
+                
+            finally:
+                conn.close()
+                
+        except Exception as e:
+            print(f"获取管理员统计数据失败: {e}")
+            self.send_json_response({
+                'success': False,
+                'error': f'获取统计数据失败: {str(e)}'
+            }, 500)
     
     def send_success_response(self, data, session_id, user_id, token):
         """发送成功响应"""

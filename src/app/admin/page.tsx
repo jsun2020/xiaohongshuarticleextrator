@@ -29,7 +29,7 @@ export default function AdminDashboard() {
       setError(null)
       
       // 使用现有的API，添加admin_stats参数
-      const response = await fetch('/api/auth_status?admin_stats=true', {
+      const response = await fetch('/api/auth?action=status&admin_stats=true', {
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json'

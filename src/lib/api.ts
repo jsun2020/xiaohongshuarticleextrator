@@ -60,7 +60,7 @@ api.interceptors.response.use(
 // 认证相关API
 export const authAPI = {
   login: async (username: string, password: string) => {
-    const response = await api.post('/auth_login', { username, password })
+    const response = await api.post('/auth?action=login', { username, password })
     if (response.data.success && response.data.token) {
       setToken(response.data.token)
     }
@@ -69,7 +69,7 @@ export const authAPI = {
   
   logout: async () => {
     try {
-      const response = await api.post('/auth_logout', {})
+      const response = await api.post('/auth?action=logout', {})
       removeToken()
       return response
     } catch (error) {
@@ -79,10 +79,10 @@ export const authAPI = {
   },
   
   getStatus: () =>
-    api.get('/auth_status'),
+    api.get('/auth?action=status'),
   
   register: (username: string, password: string, email?: string, nickname?: string) =>
-    api.post('/auth_register', { username, password, email, nickname }),
+    api.post('/auth?action=register', { username, password, email, nickname }),
 }
 
 // 笔记相关API
@@ -171,7 +171,7 @@ export const getProxiedImageUrl = (originalUrl: string): string => {
   if (isXiaohongshuImage) {
     // 使用代理URL
     const encodedUrl = encodeURIComponent(originalUrl)
-    const proxyUrl = `/api/auth_status?proxy_url=${encodedUrl}`
+    const proxyUrl = `/api/auth?action=status&proxy_url=${encodedUrl}`
     console.log(`[Image Proxy] Original: ${originalUrl}`)
     console.log(`[Image Proxy] Proxied: ${proxyUrl}`)
     return proxyUrl
