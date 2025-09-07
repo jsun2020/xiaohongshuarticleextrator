@@ -93,10 +93,12 @@ class SimpleAPIHandler(BaseHTTPRequestHandler):
         # Route mappings
         routes = {
             '/api/health': self._handle_health,
-            '/api/auth/login': self._handle_auth_login,
-            '/api/auth/register': self._handle_auth_register,
-            '/api/auth/logout': self._handle_auth_logout,
-            '/api/auth/status': self._handle_auth_status,
+            '/api/auth': self._handle_auth,
+            # Legacy auth endpoints (for backward compatibility)
+            '/api/auth/login': lambda m, h, b, q: self._handle_auth_legacy(m, h, b, q, 'login'),
+            '/api/auth/register': lambda m, h, b, q: self._handle_auth_legacy(m, h, b, q, 'register'),
+            '/api/auth/logout': lambda m, h, b, q: self._handle_auth_legacy(m, h, b, q, 'logout'),
+            '/api/auth/status': lambda m, h, b, q: self._handle_auth_legacy(m, h, b, q, 'status'),
             '/api/xiaohongshu/note': self._handle_xiaohongshu_note,
             '/api/xiaohongshu/notes': self._handle_xiaohongshu_notes,
             '/api/xiaohongshu/recreate': self._handle_xiaohongshu_recreate,
@@ -129,53 +131,26 @@ class SimpleAPIHandler(BaseHTTPRequestHandler):
         except Exception as e:
             return {'statusCode': 500, 'headers': {'Content-Type': 'application/json'}, 'body': f'{{"error": "{str(e)}"}}'}
     
-    def _handle_auth_login(self, method, headers, body, query):
-        """Handle login"""
-        if method != 'POST':
-            return {'statusCode': 405, 'headers': {'Content-Type': 'application/json'}, 'body': '{"error": "Method not allowed"}'}
-        
+    def _handle_auth(self, method, headers, body, query):
+        """Handle consolidated auth endpoint"""
         try:
-            from auth_login import handler
+            from auth import handler
             mock_request = self._create_mock_request(method, headers, body, query)
             return handler(mock_request)
         except Exception as e:
-            print(f"[API] Login error: {str(e)}")
+            print(f"[API] Auth error: {str(e)}")
             return {'statusCode': 500, 'headers': {'Content-Type': 'application/json'}, 'body': f'{{"error": "{str(e)}"}}'}
     
-    def _handle_auth_register(self, method, headers, body, query):
-        """Handle registration"""
-        if method != 'POST':
-            return {'statusCode': 405, 'headers': {'Content-Type': 'application/json'}, 'body': '{"error": "Method not allowed"}'}
-        
+    def _handle_auth_legacy(self, method, headers, body, query, action):
+        """Handle legacy auth endpoints by routing to consolidated auth with action"""
         try:
-            from auth_register import handler
+            # Add action to query parameters
+            query['action'] = [action]
+            from auth import handler
             mock_request = self._create_mock_request(method, headers, body, query)
             return handler(mock_request)
         except Exception as e:
-            return {'statusCode': 500, 'headers': {'Content-Type': 'application/json'}, 'body': f'{{"error": "{str(e)}"}}'}
-    
-    def _handle_auth_logout(self, method, headers, body, query):
-        """Handle logout"""
-        if method != 'POST':
-            return {'statusCode': 405, 'headers': {'Content-Type': 'application/json'}, 'body': '{"error": "Method not allowed"}'}
-        
-        try:
-            from auth_logout import handler
-            mock_request = self._create_mock_request(method, headers, body, query)
-            return handler(mock_request)
-        except Exception as e:
-            return {'statusCode': 500, 'headers': {'Content-Type': 'application/json'}, 'body': f'{{"error": "{str(e)}"}}'}
-    
-    def _handle_auth_status(self, method, headers, body, query):
-        """Handle auth status"""
-        if method != 'GET':
-            return {'statusCode': 405, 'headers': {'Content-Type': 'application/json'}, 'body': '{"error": "Method not allowed"}'}
-        
-        try:
-            from auth_status import handler
-            mock_request = self._create_mock_request(method, headers, body, query)
-            return handler(mock_request)
-        except Exception as e:
+            print(f"[API] Auth legacy error: {str(e)}")
             return {'statusCode': 500, 'headers': {'Content-Type': 'application/json'}, 'body': f'{{"error": "{str(e)}"}}'}
     
     def _handle_xiaohongshu_note(self, method, headers, body, query):

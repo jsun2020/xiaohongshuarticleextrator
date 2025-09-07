@@ -119,10 +119,11 @@ class APIHandler(BaseHTTPRequestHandler):
         # Map paths to API files
         route_map = {
             '/api/health': 'health.py',
-            '/api/auth/login': 'auth_login.py',
-            '/api/auth/register': 'auth_register.py',
-            '/api/auth/logout': 'auth_logout.py', 
-            '/api/auth/status': 'auth_status.py',
+            '/api/auth': 'auth.py',
+            '/api/auth/login': 'auth.py',
+            '/api/auth/register': 'auth.py',
+            '/api/auth/logout': 'auth.py', 
+            '/api/auth/status': 'auth.py',
             '/api/xiaohongshu/note': 'xiaohongshu_note.py',
             '/api/xiaohongshu/notes': 'xiaohongshu_notes.py',
             '/api/xiaohongshu/recreate': 'xiaohongshu_recreate.py',
