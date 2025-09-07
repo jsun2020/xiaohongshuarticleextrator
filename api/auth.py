@@ -261,30 +261,32 @@ class handler(BaseHTTPRequestHandler):
             
             user_id = db.create_user(username, password_hash, email, nickname)
             print(f"[AUTH DEBUG] db.create_user returned: {user_id}")
+            
+            if user_id:
+                print(f"[AUTH DEBUG] User created successfully, setting default config...")
+                # 设置默认配置
+                db.set_user_config(user_id, 'deepseek_base_url', 'https://api.deepseek.com')
+                db.set_user_config(user_id, 'deepseek_model', 'deepseek-chat')
+                db.set_user_config(user_id, 'deepseek_temperature', '0.7')
+                db.set_user_config(user_id, 'deepseek_max_tokens', '1000')
+                
+                print(f"[AUTH DEBUG] Sending success response...")
+                self.send_json_response({
+                    'success': True,
+                    'message': '用户注册成功',
+                    'user': {
+                        'id': user_id,
+                        'username': username,
+                        'nickname': nickname or username
+                    }
+                }, 201)
+            else:
+                print(f"[AUTH DEBUG] User creation failed, user_id is None/False")
+                self.send_json_response({'success': False, 'error': '用户创建失败'}, 500)
         
         except Exception as e:
             print(f"[AUTH DEBUG] Exception in handle_register: {str(e)}")
             self.send_json_response({'success': False, 'error': f'注册失败: {str(e)}'}, 500)
-            return
-        
-        if user_id:
-            # 设置默认配置
-            db.set_user_config(user_id, 'deepseek_base_url', 'https://api.deepseek.com')
-            db.set_user_config(user_id, 'deepseek_model', 'deepseek-chat')
-            db.set_user_config(user_id, 'deepseek_temperature', '0.7')
-            db.set_user_config(user_id, 'deepseek_max_tokens', '1000')
-            
-            self.send_json_response({
-                'success': True,
-                'message': '用户注册成功',
-                'user': {
-                    'id': user_id,
-                    'username': username,
-                    'nickname': nickname or username
-                }
-            }, 201)
-        else:
-            self.send_json_response({'success': False, 'error': '用户创建失败'}, 500)
     
     def handle_logout(self):
         """处理登出请求"""
