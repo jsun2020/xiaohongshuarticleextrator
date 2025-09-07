@@ -6,7 +6,7 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from _utils import parse_request, create_response
+from _utils import parse_request, create_response, require_auth
 from _database import db
 from http.server import BaseHTTPRequestHandler
 import json
@@ -88,9 +88,14 @@ class handler(BaseHTTPRequestHandler):
             
             # 从查询参数获取action，如果没有则从路径获取
             action = query_params.get('action', [None])[0]
+            
+            # Debug logging
+            print(f"[AUTH DEBUG] Path: {self.path}")
+            print(f"[AUTH DEBUG] Query params: {query_params}")
+            print(f"[AUTH DEBUG] Action detected: {action}")
+            
             if not action:
                 # 从路径中提取action，例如 /api/auth?action=login
-                path_parts = parsed_url.path.strip('/').split('/')
                 if 'login' in self.path:
                     action = 'login'
                 elif 'register' in self.path:
@@ -99,6 +104,11 @@ class handler(BaseHTTPRequestHandler):
                     action = 'logout'
                 elif 'status' in self.path:
                     action = 'status'
+                else:
+                    # Default to login for backward compatibility if no action is found
+                    action = 'login'
+            
+            print(f"[AUTH DEBUG] Final action: {action}")
             
             # 初始化数据库
             db.init_database()
@@ -112,9 +122,10 @@ class handler(BaseHTTPRequestHandler):
             elif action == 'status':
                 self.handle_status()
             else:
-                self.send_json_response({'success': False, 'error': 'Invalid action'}, 400)
+                self.send_json_response({'success': False, 'error': f'Invalid action: {action}'}, 400)
                 
         except Exception as e:
+            print(f"[AUTH DEBUG] Error in do_POST: {str(e)}")
             self.send_json_response({'success': False, 'error': f'请求处理失败: {str(e)}'}, 500)
     
     def do_GET(self):
@@ -197,41 +208,64 @@ class handler(BaseHTTPRequestHandler):
     
     def handle_register(self):
         """处理注册请求"""
-        # 读取请求体
-        content_length = int(self.headers.get('Content-Length', 0))
-        post_data = self.rfile.read(content_length)
-        data = json.loads(post_data.decode('utf-8'))
+        try:
+            print(f"[AUTH DEBUG] Starting registration process...")
+            
+            # 读取请求体
+            content_length = int(self.headers.get('Content-Length', 0))
+            post_data = self.rfile.read(content_length)
+            data = json.loads(post_data.decode('utf-8'))
+            
+            print(f"[AUTH DEBUG] Registration data received: {data}")
+            
+            username = data.get('username', '').strip()
+            password = data.get('password', '')
+            email = data.get('email', '').strip()
+            nickname = data.get('nickname', '').strip()
+            
+            print(f"[AUTH DEBUG] Parsed data - username: {username}, email: {email}, nickname: {nickname}")
+            
+            # 验证输入
+            valid, msg = validate_username(username)
+            if not valid:
+                print(f"[AUTH DEBUG] Username validation failed: {msg}")
+                self.send_json_response({'success': False, 'error': msg}, 400)
+                return
+            
+            valid, msg = validate_password(password)
+            if not valid:
+                print(f"[AUTH DEBUG] Password validation failed: {msg}")
+                self.send_json_response({'success': False, 'error': msg}, 400)
+                return
+            
+            valid, msg = validate_email(email)
+            if not valid:
+                print(f"[AUTH DEBUG] Email validation failed: {msg}")
+                self.send_json_response({'success': False, 'error': msg}, 400)
+                return
+            
+            print(f"[AUTH DEBUG] All validations passed, checking if user exists...")
+            
+            # 检查用户名是否已存在
+            existing_user = db.get_user_by_username(username)
+            if existing_user:
+                print(f"[AUTH DEBUG] User already exists: {username}")
+                self.send_json_response({'success': False, 'error': '用户名已存在'}, 400)
+                return
+            
+            print(f"[AUTH DEBUG] User doesn't exist, creating new user...")
+            
+            # 创建用户
+            password_hash = hash_password(password)
+            print(f"[AUTH DEBUG] Password hashed, calling db.create_user...")
+            
+            user_id = db.create_user(username, password_hash, email, nickname)
+            print(f"[AUTH DEBUG] db.create_user returned: {user_id}")
         
-        username = data.get('username', '').strip()
-        password = data.get('password', '')
-        email = data.get('email', '').strip()
-        nickname = data.get('nickname', '').strip()
-        
-        # 验证输入
-        valid, msg = validate_username(username)
-        if not valid:
-            self.send_json_response({'success': False, 'error': msg}, 400)
+        except Exception as e:
+            print(f"[AUTH DEBUG] Exception in handle_register: {str(e)}")
+            self.send_json_response({'success': False, 'error': f'注册失败: {str(e)}'}, 500)
             return
-        
-        valid, msg = validate_password(password)
-        if not valid:
-            self.send_json_response({'success': False, 'error': msg}, 400)
-            return
-        
-        valid, msg = validate_email(email)
-        if not valid:
-            self.send_json_response({'success': False, 'error': msg}, 400)
-            return
-        
-        # 检查用户名是否已存在
-        existing_user = db.get_user_by_username(username)
-        if existing_user:
-            self.send_json_response({'success': False, 'error': '用户名已存在'}, 400)
-            return
-        
-        # 创建用户
-        password_hash = hash_password(password)
-        user_id = db.create_user(username, password_hash, email, nickname)
         
         if user_id:
             # 设置默认配置
@@ -278,44 +312,58 @@ class handler(BaseHTTPRequestHandler):
     def handle_status(self):
         """处理状态检查请求"""
         try:
-            # 从cookies中获取session信息
+            # 解析Cookie
             cookies = {}
-            if 'Cookie' in self.headers:
-                cookie_header = self.headers['Cookie']
-                for cookie in cookie_header.split(';'):
-                    if '=' in cookie:
-                        key, value = cookie.strip().split('=', 1)
+            cookie_header = self.headers.get('Cookie', '') or self.headers.get('cookie', '')
+            if cookie_header:
+                for item in cookie_header.split(';'):
+                    if '=' in item:
+                        key, value = item.strip().split('=', 1)
                         cookies[key] = value
             
-            session_id = cookies.get('session_id')
-            user_id = cookies.get('user_id')
-            logged_in = cookies.get('logged_in')
+            # 检查认证
+            req_data = {
+                'method': 'GET',
+                'cookies': cookies,
+                'headers': dict(self.headers)
+            }
             
-            if session_id and user_id and logged_in == 'true':
-                # 验证用户是否存在
-                user = db.get_user_by_id(int(user_id))
-                if user:
-                    self.send_json_response({
-                        'success': True,
-                        'logged_in': True,
-                        'user': {
-                            'id': user['id'],
-                            'username': user['username'],
-                            'nickname': user['nickname'] or user['username'],
-                            'email': user['email']
-                        }
-                    }, 200)
-                    return
+            user_id = require_auth(req_data)
             
+            if not user_id:
+                self.send_json_response({
+                    'logged_in': False,
+                    'user': None
+                }, 200)
+                return
+            
+            # 初始化数据库并获取完整用户信息
+            user_data = db.get_user_by_id(user_id)
+            
+            if not user_data:
+                # User ID is valid but user no longer exists in DB
+                self.send_json_response({
+                    'logged_in': False,
+                    'user': None
+                }, 200)
+                return
+            
+            # 返回完整用户信息
             self.send_json_response({
-                'success': True,
-                'logged_in': False
+                'logged_in': True,
+                'user': {
+                    'id': user_data['id'],
+                    'username': user_data['username'],
+                    'nickname': user_data['nickname'] or user_data['username'],
+                    'email': user_data['email'] or ''
+                }
             }, 200)
             
         except Exception as e:
             self.send_json_response({
-                'success': True,
-                'logged_in': False
+                'logged_in': False,
+                'user': None,
+                'error': str(e)
             }, 200)
     
     def handle_image_proxy(self, image_url):
