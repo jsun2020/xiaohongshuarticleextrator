@@ -93,10 +93,19 @@ class handler(BaseHTTPRequestHandler):
             cursor = conn.cursor()
             
             try:
-                cursor.execute("""
-                    SELECT id, user_id FROM recreate_history 
-                    WHERE id = ? AND user_id = ?
-                """, (history_id, user_id))
+                # Check database type
+                use_postgres = getattr(db, 'use_postgres', False)
+                
+                if use_postgres:
+                    cursor.execute("""
+                        SELECT id, user_id FROM recreate_history 
+                        WHERE id = %s AND user_id = %s
+                    """, (history_id, user_id))
+                else:
+                    cursor.execute("""
+                        SELECT id, user_id FROM recreate_history 
+                        WHERE id = ? AND user_id = ?
+                    """, (history_id, user_id))
                 
                 history_record = cursor.fetchone()
                 if not history_record:
@@ -169,11 +178,18 @@ class handler(BaseHTTPRequestHandler):
                             
                             # 保存到数据库
                             created_at = datetime.now().isoformat()
-                            cursor.execute("""
-                                INSERT INTO visual_story_history 
-                                (history_id, user_id, title, content, html_content, model_used, created_at)
-                                VALUES (?, ?, ?, ?, ?, ?, ?)
-                            """, (history_id, user_id, title, content, story_result, model, created_at))
+                            if use_postgres:
+                                cursor.execute("""
+                                    INSERT INTO visual_story_history 
+                                    (history_id, user_id, title, content, html_content, model_used, created_at)
+                                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                                """, (history_id, user_id, title, content, story_result, model, created_at))
+                            else:
+                                cursor.execute("""
+                                    INSERT INTO visual_story_history 
+                                    (history_id, user_id, title, content, html_content, model_used, created_at)
+                                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                                """, (history_id, user_id, title, content, story_result, model, created_at))
                             
                             story_id = cursor.lastrowid
                             conn.commit()
