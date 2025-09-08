@@ -56,14 +56,32 @@ export default function VisualStoryGenerator({ open, onOpenChange, historyItem }
         history_id: historyItem.id,
         title: historyItem.new_title,
         content: historyItem.new_content,
-        model: 'gemini-2.0-flash-exp'
+        model: 'gemini-2.5-flash-image-preview'
       })
 
       clearInterval(progressInterval)
       setProgress(100)
 
       if (response.data.success) {
-        setVisualStory(response.data.data)
+        // The API returns html_content (raw text from Gemini), not structured visual story data
+        // For now, we'll just display the raw content
+        const htmlContent = response.data.data?.html_content || '生成的视觉故事内容'
+        setVisualStory({
+          cover_card: {
+            title: historyItem.new_title,
+            layout: 'c' as const,
+            image_url: 'https://via.placeholder.com/600x800/f0f0f0/333?text=Generated+Cover'
+          },
+          content_cards: [
+            {
+              title: '生成的内容',
+              content: htmlContent.length > 200 ? htmlContent.substring(0, 200) + '...' : htmlContent,
+              layout: 'a' as const,
+              image_url: 'https://via.placeholder.com/600x800/f0f0f0/333?text=Generated+Content'
+            }
+          ],
+          html: htmlContent
+        })
       } else {
         throw new Error(response.data.error || '生成失败')
       }
@@ -200,7 +218,7 @@ export default function VisualStoryGenerator({ open, onOpenChange, historyItem }
                     <Alert className="mb-4">
                       <CheckCircle className="h-4 w-4" />
                       <AlertDescription>
-                        视觉故事生成成功！包含1张封面卡片和{visualStory.content_cards.length}张内容卡片。
+                        视觉故事生成成功！包含1张封面卡片和{visualStory.content_cards?.length || 0}张内容卡片。
                       </AlertDescription>
                     </Alert>
                   )}
@@ -277,7 +295,7 @@ export default function VisualStoryGenerator({ open, onOpenChange, historyItem }
                       </div>
 
                       {/* Content Cards */}
-                      {visualStory.content_cards.slice(0, 5).map((card, index) => (
+                      {visualStory.content_cards?.slice(0, 5).map((card, index) => (
                         <div key={index} className="col-span-1">
                           <div className="bg-white rounded-lg shadow-md overflow-hidden aspect-[3/4]">
                             {card.layout === 'c' ? (
@@ -331,12 +349,12 @@ export default function VisualStoryGenerator({ open, onOpenChange, historyItem }
                         </div>
                       ))}
 
-                      {visualStory.content_cards.length > 5 && (
+                      {(visualStory.content_cards?.length || 0) > 5 && (
                         <div className="col-span-1">
                           <div className="bg-gray-100 rounded-lg aspect-[3/4] flex items-center justify-center">
                             <div className="text-center">
                               <p className="text-sm font-medium text-gray-600">
-                                +{visualStory.content_cards.length - 5}
+                                +{(visualStory.content_cards?.length || 0) - 5}
                               </p>
                               <p className="text-xs text-gray-500">更多卡片</p>
                             </div>
