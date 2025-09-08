@@ -1,17 +1,15 @@
 """
-Visual Story API - Vercel Serverless函数
-处理视觉故事生成、历史记录等请求
+Visual Story Generate API - Vercel Serverless函数
+处理视觉故事生成请求
 """
 import sys
 import os
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from _utils import parse_request, create_response, require_auth
 from _database import db
 from http.server import BaseHTTPRequestHandler
 import json
-import urllib.parse
-from urllib.parse import urlparse, parse_qs
 from datetime import datetime
 
 class handler(BaseHTTPRequestHandler):
@@ -28,45 +26,10 @@ class handler(BaseHTTPRequestHandler):
         try:
             print(f"[VISUAL_STORY DEBUG] POST request path: {self.path}")
             
-            # 解析路径
-            parsed_url = urlparse(self.path)
-            path_parts = parsed_url.path.strip('/').split('/')
-            
-            if 'generate' in self.path or len(path_parts) >= 2 and path_parts[1] == 'generate':
-                self.handle_generate()
-            else:
-                self.send_json_response({'success': False, 'error': 'Invalid endpoint'}, 404)
+            self.handle_generate()
                 
         except Exception as e:
             print(f"[VISUAL_STORY DEBUG] Error in do_POST: {str(e)}")
-            self.send_json_response({'success': False, 'error': f'请求处理失败: {str(e)}'}, 500)
-    
-    def do_GET(self):
-        """处理GET请求"""
-        try:
-            print(f"[VISUAL_STORY DEBUG] GET request path: {self.path}")
-            
-            if 'history' in self.path:
-                self.handle_get_history()
-            else:
-                self.send_json_response({'success': False, 'error': 'Invalid endpoint'}, 404)
-                
-        except Exception as e:
-            print(f"[VISUAL_STORY DEBUG] Error in do_GET: {str(e)}")
-            self.send_json_response({'success': False, 'error': f'请求处理失败: {str(e)}'}, 500)
-    
-    def do_DELETE(self):
-        """处理DELETE请求"""
-        try:
-            print(f"[VISUAL_STORY DEBUG] DELETE request path: {self.path}")
-            
-            if 'history' in self.path:
-                self.handle_delete_history()
-            else:
-                self.send_json_response({'success': False, 'error': 'Invalid endpoint'}, 404)
-                
-        except Exception as e:
-            print(f"[VISUAL_STORY DEBUG] Error in do_DELETE: {str(e)}")
             self.send_json_response({'success': False, 'error': f'请求处理失败: {str(e)}'}, 500)
     
     def handle_generate(self):
@@ -239,149 +202,6 @@ class handler(BaseHTTPRequestHandler):
         except Exception as e:
             print(f"[VISUAL_STORY DEBUG] Exception in handle_generate: {str(e)}")
             self.send_json_response({'success': False, 'error': f'生成失败: {str(e)}'}, 500)
-    
-    def handle_get_history(self):
-        """处理获取历史记录请求"""
-        try:
-            # 检查认证
-            cookies = {}
-            cookie_header = self.headers.get('Cookie', '')
-            if cookie_header:
-                for item in cookie_header.split(';'):
-                    if '=' in item:
-                        key, value = item.strip().split('=', 1)
-                        cookies[key] = value
-            
-            req_data = {
-                'method': 'GET',
-                'cookies': cookies,
-                'headers': dict(self.headers)
-            }
-            
-            user_id = require_auth(req_data)
-            if not user_id:
-                self.send_json_response({'success': False, 'error': '请先登录'}, 401)
-                return
-            
-            # 解析查询参数
-            parsed_url = urlparse(self.path)
-            query_params = parse_qs(parsed_url.query)
-            
-            limit = int(query_params.get('limit', [20])[0])
-            offset = int(query_params.get('offset', [0])[0])
-            
-            # 初始化数据库
-            db.init_database()
-            
-            conn = db.get_connection()
-            cursor = conn.cursor()
-            
-            try:
-                cursor.execute("""
-                    SELECT id, history_id, title, content, html_content, model_used, created_at
-                    FROM visual_story_history 
-                    WHERE user_id = ?
-                    ORDER BY created_at DESC
-                    LIMIT ? OFFSET ?
-                """, (user_id, limit, offset))
-                
-                stories = cursor.fetchall()
-                
-                # 转换为字典格式
-                result = []
-                if stories:
-                    columns = [description[0] for description in cursor.description]
-                    for story in stories:
-                        story_dict = dict(zip(columns, story))
-                        result.append(story_dict)
-                
-                self.send_json_response({
-                    'success': True,
-                    'data': result,
-                    'total': len(result)
-                }, 200)
-                
-            finally:
-                conn.close()
-                
-        except Exception as e:
-            print(f"[VISUAL_STORY DEBUG] Exception in handle_get_history: {str(e)}")
-            self.send_json_response({'success': False, 'error': f'获取历史记录失败: {str(e)}'}, 500)
-    
-    def handle_delete_history(self):
-        """处理删除历史记录请求"""
-        try:
-            # 检查认证
-            cookies = {}
-            cookie_header = self.headers.get('Cookie', '')
-            if cookie_header:
-                for item in cookie_header.split(';'):
-                    if '=' in item:
-                        key, value = item.strip().split('=', 1)
-                        cookies[key] = value
-            
-            req_data = {
-                'method': 'DELETE',
-                'cookies': cookies,
-                'headers': dict(self.headers)
-            }
-            
-            user_id = require_auth(req_data)
-            if not user_id:
-                self.send_json_response({'success': False, 'error': '请先登录'}, 401)
-                return
-            
-            # 从路径中提取story_id
-            path_parts = self.path.strip('/').split('/')
-            story_id = None
-            for i, part in enumerate(path_parts):
-                if part == 'history' and i + 1 < len(path_parts):
-                    try:
-                        story_id = int(path_parts[i + 1])
-                        break
-                    except (ValueError, IndexError):
-                        pass
-            
-            if not story_id:
-                self.send_json_response({'success': False, 'error': '无效的故事ID'}, 400)
-                return
-            
-            # 初始化数据库
-            db.init_database()
-            
-            conn = db.get_connection()
-            cursor = conn.cursor()
-            
-            try:
-                # 验证记录是否存在且属于当前用户
-                cursor.execute("""
-                    SELECT id FROM visual_story_history 
-                    WHERE id = ? AND user_id = ?
-                """, (story_id, user_id))
-                
-                if not cursor.fetchone():
-                    self.send_json_response({'success': False, 'error': '记录不存在或无权删除'}, 404)
-                    return
-                
-                # 删除记录
-                cursor.execute("""
-                    DELETE FROM visual_story_history 
-                    WHERE id = ? AND user_id = ?
-                """, (story_id, user_id))
-                
-                conn.commit()
-                
-                self.send_json_response({
-                    'success': True,
-                    'message': '删除成功'
-                }, 200)
-                
-            finally:
-                conn.close()
-                
-        except Exception as e:
-            print(f"[VISUAL_STORY DEBUG] Exception in handle_delete_history: {str(e)}")
-            self.send_json_response({'success': False, 'error': f'删除失败: {str(e)}'}, 500)
     
     def send_json_response(self, data, status_code):
         """发送JSON响应"""
