@@ -1,6 +1,6 @@
 """
 Visual Story Generate API - Vercel Serverless函数
-处理视觉故事生成请求
+处理视觉故事生成请求，内置Gemini客户端
 """
 import sys
 import os
@@ -11,6 +11,7 @@ from _database import db
 from http.server import BaseHTTPRequestHandler
 import json
 from datetime import datetime
+import google.generativeai as genai
 
 class handler(BaseHTTPRequestHandler):
     def do_OPTIONS(self):
@@ -107,20 +108,25 @@ class handler(BaseHTTPRequestHandler):
                 
                 print(f"[VISUAL_STORY DEBUG] History record found, generating visual story...")
                 
-                # 调用Gemini生成视觉故事
+                # 调用内置Gemini生成视觉故事
                 try:
-                    from gemini_visual_story import create_gemini_client
-                    
                     print(f"[VISUAL_STORY DEBUG] Creating Gemini client...")
-                    gemini_client = create_gemini_client()  # Will read GEMINI_API_KEY from environment
                     
-                    if not gemini_client:
-                        print(f"[VISUAL_STORY DEBUG] Failed to create Gemini client")
+                    # 获取API密钥
+                    api_key = os.environ.get('GEMINI_API_KEY')
+                    if not api_key:
+                        print(f"[VISUAL_STORY DEBUG] GEMINI_API_KEY not found")
                         self.send_json_response({
                             'success': False,
-                            'error': 'Gemini服务初始化失败，请检查API密钥配置'
+                            'error': 'Gemini API密钥未配置，请检查环境变量GEMINI_API_KEY'
                         }, 500)
                         return
+                    
+                    # 初始化Gemini客户端
+                    genai.configure(api_key=api_key)
+                    gemini_model = genai.GenerativeModel(model)
+                    
+                    print(f"[VISUAL_STORY DEBUG] Using model: {model}")
                     
                     # 生成提示词
                     prompt = f"""
@@ -143,7 +149,7 @@ class handler(BaseHTTPRequestHandler):
                     print(f"[VISUAL_STORY DEBUG] Sending request to Gemini...")
                     
                     # 发送到Gemini
-                    response = gemini_client.generate_content(prompt)
+                    response = gemini_model.generate_content(prompt)
                     
                     if response and response.text:
                         story_result = response.text
@@ -181,13 +187,6 @@ class handler(BaseHTTPRequestHandler):
                         }, 500)
                         return
                         
-                except ImportError as e:
-                    print(f"[VISUAL_STORY DEBUG] Import error: {str(e)}")
-                    self.send_json_response({
-                        'success': False,
-                        'error': 'Gemini服务模块导入失败'
-                    }, 500)
-                    return
                 except Exception as e:
                     print(f"[VISUAL_STORY DEBUG] Gemini error: {str(e)}")
                     self.send_json_response({
