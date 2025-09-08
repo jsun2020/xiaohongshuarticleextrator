@@ -1,6 +1,6 @@
 """
 Visual Story Generate API - Vercel Serverless函数
-处理视觉故事生成请求，内置Gemini客户端
+处理视觉故事生成请求，使用HTTP请求调用Gemini API
 """
 import sys
 import os
@@ -11,7 +11,7 @@ from _database import db
 from http.server import BaseHTTPRequestHandler
 import json
 from datetime import datetime
-import google.generativeai as genai
+import requests
 
 class handler(BaseHTTPRequestHandler):
     def do_OPTIONS(self):
@@ -108,9 +108,9 @@ class handler(BaseHTTPRequestHandler):
                 
                 print(f"[VISUAL_STORY DEBUG] History record found, generating visual story...")
                 
-                # 调用内置Gemini生成视觉故事
+                # 调用Gemini API生成视觉故事
                 try:
-                    print(f"[VISUAL_STORY DEBUG] Creating Gemini client...")
+                    print(f"[VISUAL_STORY DEBUG] Preparing Gemini API call...")
                     
                     # 获取API密钥
                     api_key = os.environ.get('GEMINI_API_KEY')
@@ -121,10 +121,6 @@ class handler(BaseHTTPRequestHandler):
                             'error': 'Gemini API密钥未配置，请检查环境变量GEMINI_API_KEY'
                         }, 500)
                         return
-                    
-                    # 初始化Gemini客户端
-                    genai.configure(api_key=api_key)
-                    gemini_model = genai.GenerativeModel(model)
                     
                     print(f"[VISUAL_STORY DEBUG] Using model: {model}")
                     
@@ -146,47 +142,77 @@ class handler(BaseHTTPRequestHandler):
 请以JSON格式返回，包含story_description字段。
 """
                     
-                    print(f"[VISUAL_STORY DEBUG] Sending request to Gemini...")
+                    print(f"[VISUAL_STORY DEBUG] Sending request to Gemini API...")
                     
-                    # 发送到Gemini
-                    response = gemini_model.generate_content(prompt)
+                    # 调用Gemini API
+                    gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+                    headers = {
+                        'Content-Type': 'application/json',
+                        'x-goog-api-key': api_key
+                    }
                     
-                    if response and response.text:
-                        story_result = response.text
-                        print(f"[VISUAL_STORY DEBUG] Gemini response received: {len(story_result)} characters")
-                        
-                        # 保存到数据库
-                        created_at = datetime.now().isoformat()
-                        cursor.execute("""
-                            INSERT INTO visual_story_history 
-                            (history_id, user_id, title, content, html_content, model_used, created_at)
-                            VALUES (?, ?, ?, ?, ?, ?, ?)
-                        """, (history_id, user_id, title, content, story_result, model, created_at))
-                        
-                        story_id = cursor.lastrowid
-                        conn.commit()
-                        
-                        print(f"[VISUAL_STORY DEBUG] Story saved to database with ID: {story_id}")
-                        
-                        self.send_json_response({
-                            'success': True,
-                            'message': '视觉故事生成成功',
-                            'data': {
-                                'story_id': story_id,
-                                'html_content': story_result,
-                                'model_used': model,
-                                'created_at': created_at
-                            }
-                        }, 200)
-                        return
+                    payload = {
+                        "contents": [{
+                            "parts": [{
+                                "text": prompt
+                            }]
+                        }]
+                    }
+                    
+                    response = requests.post(gemini_url, headers=headers, json=payload, timeout=30)
+                    
+                    if response.status_code == 200:
+                        response_data = response.json()
+                        if 'candidates' in response_data and len(response_data['candidates']) > 0:
+                            story_result = response_data['candidates'][0]['content']['parts'][0]['text']
+                            print(f"[VISUAL_STORY DEBUG] Gemini response received: {len(story_result)} characters")
+                            
+                            # 保存到数据库
+                            created_at = datetime.now().isoformat()
+                            cursor.execute("""
+                                INSERT INTO visual_story_history 
+                                (history_id, user_id, title, content, html_content, model_used, created_at)
+                                VALUES (?, ?, ?, ?, ?, ?, ?)
+                            """, (history_id, user_id, title, content, story_result, model, created_at))
+                            
+                            story_id = cursor.lastrowid
+                            conn.commit()
+                            
+                            print(f"[VISUAL_STORY DEBUG] Story saved to database with ID: {story_id}")
+                            
+                            self.send_json_response({
+                                'success': True,
+                                'message': '视觉故事生成成功',
+                                'data': {
+                                    'story_id': story_id,
+                                    'html_content': story_result,
+                                    'model_used': model,
+                                    'created_at': created_at
+                                }
+                            }, 200)
+                            return
+                        else:
+                            print(f"[VISUAL_STORY DEBUG] No candidates in Gemini response")
+                            self.send_json_response({
+                                'success': False,
+                                'error': 'Gemini API返回了空响应'
+                            }, 500)
+                            return
                     else:
-                        print(f"[VISUAL_STORY DEBUG] No response from Gemini")
+                        print(f"[VISUAL_STORY DEBUG] Gemini API error: {response.status_code} - {response.text}")
                         self.send_json_response({
                             'success': False,
-                            'error': 'Gemini服务无响应'
+                            'error': f'Gemini API调用失败: {response.status_code}'
                         }, 500)
                         return
                         
+                except requests.exceptions.RequestException as e:
+                    print(f"[VISUAL_STORY DEBUG] Request error: {str(e)}")
+                    self.send_json_response({
+                        'success': False,
+                        'error': f'网络请求失败: {str(e)}'
+                    }, 500)
+                    return
                 except Exception as e:
                     print(f"[VISUAL_STORY DEBUG] Gemini error: {str(e)}")
                     self.send_json_response({
