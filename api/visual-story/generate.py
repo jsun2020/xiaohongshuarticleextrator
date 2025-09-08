@@ -176,37 +176,105 @@ class handler(BaseHTTPRequestHandler):
                             story_result = response_data['candidates'][0]['content']['parts'][0]['text']
                             print(f"[VISUAL_STORY DEBUG] Gemini response received: {len(story_result)} characters")
                             
-                            # 保存到数据库
-                            created_at = datetime.now().isoformat()
-                            if use_postgres:
-                                cursor.execute("""
-                                    INSERT INTO visual_story_history 
-                                    (history_id, user_id, title, content, html_content, model_used, created_at)
-                                    VALUES (%s, %s, %s, %s, %s, %s, %s)
-                                """, (history_id, user_id, title, content, story_result, model, created_at))
-                            else:
-                                cursor.execute("""
-                                    INSERT INTO visual_story_history 
-                                    (history_id, user_id, title, content, html_content, model_used, created_at)
-                                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                                """, (history_id, user_id, title, content, story_result, model, created_at))
-                            
-                            story_id = cursor.lastrowid
-                            conn.commit()
-                            
-                            print(f"[VISUAL_STORY DEBUG] Story saved to database with ID: {story_id}")
-                            
-                            self.send_json_response({
-                                'success': True,
-                                'message': '视觉故事生成成功',
-                                'data': {
-                                    'story_id': story_id,
-                                    'html_content': story_result,
-                                    'model_used': model,
-                                    'created_at': created_at
-                                }
-                            }, 200)
-                            return
+                            # Parse and structure the visual story response
+                            try:
+                                import re
+                                
+                                # Try to parse JSON if it's in the response
+                                json_match = re.search(r'\{.*\}', story_result, re.DOTALL)
+                                structured_story = None
+                                
+                                if json_match:
+                                    try:
+                                        parsed_json = json.loads(json_match.group())
+                                        print(f"[VISUAL_STORY DEBUG] Parsed JSON structure: {parsed_json}")
+                                        
+                                        # Create structured visual story data
+                                        structured_story = {
+                                            'cover_card': {
+                                                'title': title,
+                                                'layout': 'c',
+                                                'image_url': f'https://via.placeholder.com/600x800/6366f1/ffffff?text={title[:20].replace(" ", "+")}'
+                                            },
+                                            'content_cards': [],
+                                            'html': story_result
+                                        }
+                                        
+                                        # Process story elements
+                                        if 'story_description' in parsed_json:
+                                            for i, element in enumerate(parsed_json['story_description'][:8]):  # Max 8 cards
+                                                if isinstance(element, dict):
+                                                    element_title = element.get('element', f'场景 {i+1}')
+                                                    element_desc = element.get('description', '')[:100] + '...'
+                                                    
+                                                    # Generate placeholder with description
+                                                    image_text = element_title.replace(' ', '+')
+                                                    layouts = ['a', 'b', 'c']
+                                                    
+                                                    structured_story['content_cards'].append({
+                                                        'title': element_title,
+                                                        'content': element_desc,
+                                                        'layout': layouts[i % 3],
+                                                        'image_url': f'https://via.placeholder.com/600x800/8b5cf6/ffffff?text={image_text}'
+                                                    })
+                                    except json.JSONDecodeError:
+                                        print(f"[VISUAL_STORY DEBUG] Failed to parse JSON, using fallback")
+                                
+                                # If no structured data, create basic fallback
+                                if not structured_story:
+                                    structured_story = {
+                                        'cover_card': {
+                                            'title': title,
+                                            'layout': 'c',
+                                            'image_url': f'https://via.placeholder.com/600x800/6366f1/ffffff?text={title[:20].replace(" ", "+")}'
+                                        },
+                                        'content_cards': [{
+                                            'title': '生成的视觉故事',
+                                            'content': story_result[:200] + '...' if len(story_result) > 200 else story_result,
+                                            'layout': 'a',
+                                            'image_url': 'https://via.placeholder.com/600x800/8b5cf6/ffffff?text=Visual+Story'
+                                        }],
+                                        'html': story_result
+                                    }
+                                
+                                # 保存到数据库 (save structured data as JSON)
+                                created_at = datetime.now().isoformat()
+                                story_data_json = json.dumps(structured_story, ensure_ascii=False)
+                                
+                                if use_postgres:
+                                    cursor.execute("""
+                                        INSERT INTO visual_story_history 
+                                        (history_id, user_id, title, content, html_content, model_used, created_at)
+                                        VALUES (%s, %s, %s, %s, %s, %s, %s)
+                                    """, (history_id, user_id, title, content, story_data_json, model, created_at))
+                                else:
+                                    cursor.execute("""
+                                        INSERT INTO visual_story_history 
+                                        (history_id, user_id, title, content, html_content, model_used, created_at)
+                                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                                    """, (history_id, user_id, title, content, story_data_json, model, created_at))
+                                
+                                story_id = cursor.lastrowid
+                                conn.commit()
+                                
+                                print(f"[VISUAL_STORY DEBUG] Story saved to database with ID: {story_id}")
+                                
+                                self.send_json_response({
+                                    'success': True,
+                                    'message': '视觉故事生成成功',
+                                    'data': {
+                                        'story_id': story_id,
+                                        'visual_story': structured_story,
+                                        'model_used': model,
+                                        'created_at': created_at
+                                    }
+                                }, 200)
+                                return
+                                
+                            except Exception as parse_error:
+                                print(f"[VISUAL_STORY DEBUG] Parsing error: {str(parse_error)}")
+                                # Fallback to original behavior
+                                pass
                         else:
                             print(f"[VISUAL_STORY DEBUG] No candidates in Gemini response")
                             self.send_json_response({

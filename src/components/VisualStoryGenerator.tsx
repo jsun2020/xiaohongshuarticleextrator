@@ -63,25 +63,32 @@ export default function VisualStoryGenerator({ open, onOpenChange, historyItem }
       setProgress(100)
 
       if (response.data.success) {
-        // The API returns html_content (raw text from Gemini), not structured visual story data
-        // For now, we'll just display the raw content
-        const htmlContent = response.data.data?.html_content || '生成的视觉故事内容'
-        setVisualStory({
-          cover_card: {
-            title: historyItem.new_title,
-            layout: 'c' as const,
-            image_url: 'https://via.placeholder.com/600x800/f0f0f0/333?text=Generated+Cover'
-          },
-          content_cards: [
-            {
-              title: '生成的内容',
-              content: htmlContent.length > 200 ? htmlContent.substring(0, 200) + '...' : htmlContent,
-              layout: 'a' as const,
-              image_url: 'https://via.placeholder.com/600x800/f0f0f0/333?text=Generated+Content'
-            }
-          ],
-          html: htmlContent
-        })
+        // Handle new structured visual story response
+        const visualStoryData = response.data.data?.visual_story
+        
+        if (visualStoryData) {
+          // Use structured data directly from API
+          setVisualStory(visualStoryData)
+        } else {
+          // Fallback for old format
+          const htmlContent = response.data.data?.html_content || '生成的视觉故事内容'
+          setVisualStory({
+            cover_card: {
+              title: historyItem.new_title,
+              layout: 'c' as const,
+              image_url: 'https://via.placeholder.com/600x800/f0f0f0/333?text=Generated+Cover'
+            },
+            content_cards: [
+              {
+                title: '生成的内容',
+                content: htmlContent.length > 200 ? htmlContent.substring(0, 200) + '...' : htmlContent,
+                layout: 'a' as const,
+                image_url: 'https://via.placeholder.com/600x800/f0f0f0/333?text=Generated+Content'
+              }
+            ],
+            html: htmlContent
+          })
+        }
       } else {
         throw new Error(response.data.error || '生成失败')
       }
