@@ -190,11 +190,21 @@ class handler(BaseHTTPRequestHandler):
                                         print(f"[VISUAL_STORY DEBUG] Parsed JSON structure: {parsed_json}")
                                         
                                         # Create structured visual story data
+                                        def create_svg_placeholder(text, bg_color="6366f1", text_color="ffffff", width=600, height=800):
+                                            """Generate SVG data URI for placeholder image"""
+                                            svg_text = text[:20].replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                                            svg = f'''<svg width="{width}" height="{height}" xmlns="http://www.w3.org/2000/svg">
+<rect width="100%" height="100%" fill="#{bg_color}"/>
+<text x="50%" y="50%" font-family="Arial,sans-serif" font-size="24" fill="#{text_color}" text-anchor="middle" dy=".3em">{svg_text}</text>
+</svg>'''
+                                            import base64
+                                            return f"data:image/svg+xml;base64,{base64.b64encode(svg.encode()).decode()}"
+                                        
                                         structured_story = {
                                             'cover_card': {
                                                 'title': title,
                                                 'layout': 'c',
-                                                'image_url': f'https://via.placeholder.com/600x800/6366f1/ffffff?text={title[:20].replace(" ", "+")}'
+                                                'image_url': create_svg_placeholder(title, "6366f1", "ffffff")
                                             },
                                             'content_cards': [],
                                             'html': story_result
@@ -207,32 +217,42 @@ class handler(BaseHTTPRequestHandler):
                                                     element_title = element.get('element', f'场景 {i+1}')
                                                     element_desc = element.get('description', '')[:100] + '...'
                                                     
-                                                    # Generate placeholder with description
-                                                    image_text = element_title.replace(' ', '+')
+                                                    # Generate SVG placeholder with description
                                                     layouts = ['a', 'b', 'c']
+                                                    colors = ["8b5cf6", "06b6d4", "10b981", "f59e0b", "ef4444", "ec4899"]
                                                     
                                                     structured_story['content_cards'].append({
                                                         'title': element_title,
                                                         'content': element_desc,
                                                         'layout': layouts[i % 3],
-                                                        'image_url': f'https://via.placeholder.com/600x800/8b5cf6/ffffff?text={image_text}'
+                                                        'image_url': create_svg_placeholder(element_title, colors[i % len(colors)], "ffffff")
                                                     })
                                     except json.JSONDecodeError:
                                         print(f"[VISUAL_STORY DEBUG] Failed to parse JSON, using fallback")
                                 
                                 # If no structured data, create basic fallback
                                 if not structured_story:
+                                    def create_svg_placeholder_fallback(text, bg_color="6366f1", text_color="ffffff", width=600, height=800):
+                                        """Generate SVG data URI for placeholder image"""
+                                        svg_text = text[:20].replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                                        svg = f'''<svg width="{width}" height="{height}" xmlns="http://www.w3.org/2000/svg">
+<rect width="100%" height="100%" fill="#{bg_color}"/>
+<text x="50%" y="50%" font-family="Arial,sans-serif" font-size="24" fill="#{text_color}" text-anchor="middle" dy=".3em">{svg_text}</text>
+</svg>'''
+                                        import base64
+                                        return f"data:image/svg+xml;base64,{base64.b64encode(svg.encode()).decode()}"
+                                    
                                     structured_story = {
                                         'cover_card': {
                                             'title': title,
                                             'layout': 'c',
-                                            'image_url': f'https://via.placeholder.com/600x800/6366f1/ffffff?text={title[:20].replace(" ", "+")}'
+                                            'image_url': create_svg_placeholder_fallback(title, "6366f1", "ffffff")
                                         },
                                         'content_cards': [{
                                             'title': '生成的视觉故事',
                                             'content': story_result[:200] + '...' if len(story_result) > 200 else story_result,
                                             'layout': 'a',
-                                            'image_url': 'https://via.placeholder.com/600x800/8b5cf6/ffffff?text=Visual+Story'
+                                            'image_url': create_svg_placeholder_fallback('Visual Story', "8b5cf6", "ffffff")
                                         }],
                                         'html': story_result
                                     }
