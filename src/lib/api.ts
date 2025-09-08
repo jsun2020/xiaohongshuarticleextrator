@@ -138,10 +138,10 @@ export const visualStoryAPI = {
     api.post('/visual-story/generate', data),
   
   getHistory: (limit = 20, offset = 0) =>
-    api.get(`/visual-story/history?limit=${limit}&offset=${offset}`),
+    api.get(`/xiaohongshu_recreate_history?type=visual-story&limit=${limit}&offset=${offset}`),
   
   deleteHistory: (storyId: number) =>
-    api.delete(`/visual-story/history/${storyId}`),
+    api.delete(`/xiaohongshu_recreate_history?type=visual-story&story_id=${storyId}`),
 }
 
 // 图片代理工具函数

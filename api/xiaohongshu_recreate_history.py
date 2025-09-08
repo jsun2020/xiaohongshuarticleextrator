@@ -1,8 +1,10 @@
 """
-二创历史列表API - Vercel Serverless函数
+历史列表API - Vercel Serverless函数
 Handles: 
-- GET /api/xiaohongshu_recreate_history - 获取历史列表
-- DELETE /api/xiaohongshu_recreate_history/{history_id} - 删除历史记录
+- GET /api/xiaohongshu_recreate_history - 获取二创历史列表
+- GET /api/xiaohongshu_recreate_history?type=visual-story - 获取视觉故事历史列表
+- DELETE /api/xiaohongshu_recreate_history?history_id={id} - 删除二创历史记录
+- DELETE /api/xiaohongshu_recreate_history?type=visual-story&story_id={id} - 删除视觉故事历史记录
 """
 from http.server import BaseHTTPRequestHandler
 import sys
@@ -179,7 +181,13 @@ class handler(BaseHTTPRequestHandler):
                 print(f"[CLEANUP] Cleanup requested, executing database cleanup...")
                 return self.handle_cleanup()
             
-            print(f"[STEP 10] Proceeding with normal history query...")
+            # Check request type - visual story or recreate history
+            request_type = query_params.get('type', [''])[0]
+            if request_type == 'visual-story':
+                print(f"[STEP 10] Processing visual story history request...")
+                return self.handle_visual_story_history(user_id, limit, offset, page, per_page)
+            
+            print(f"[STEP 10] Proceeding with normal recreate history query...")
             
             # 获取二创历史
             try:
@@ -361,6 +369,208 @@ class handler(BaseHTTPRequestHandler):
                 import traceback
                 print(f"[CRITICAL MAIN ERROR] Response error traceback: {traceback.format_exc()}")
     
+    def handle_visual_story_history(self, user_id, limit, offset, page, per_page):
+        """处理视觉故事历史请求"""
+        try:
+            print(f"[VISUAL_STORY DEBUG] Processing visual story history for user: {user_id}")
+            
+            conn = db.get_connection()
+            cursor = conn.cursor()
+            
+            try:
+                # Get visual story history
+                use_postgres = getattr(db, 'use_postgres', False)
+                
+                if use_postgres:
+                    query = '''
+                        SELECT id, history_id, title, content, html_content, model_used, created_at
+                        FROM visual_story_history 
+                        WHERE user_id = %s
+                        ORDER BY created_at DESC
+                        LIMIT %s OFFSET %s
+                    '''
+                    params = (user_id, per_page, offset)
+                else:
+                    query = '''
+                        SELECT id, history_id, title, content, html_content, model_used, created_at
+                        FROM visual_story_history 
+                        WHERE user_id = ?
+                        ORDER BY created_at DESC
+                        LIMIT ? OFFSET ?
+                    '''
+                    params = (user_id, per_page, offset)
+                
+                print(f"[VISUAL_STORY DEBUG] Executing query with params: {params}")
+                cursor.execute(query, params)
+                
+                rows = cursor.fetchall()
+                columns = [desc[0] for desc in cursor.description]
+                
+                print(f"[VISUAL_STORY DEBUG] Found {len(rows)} visual story records")
+                
+                # Get total count
+                if use_postgres:
+                    count_query = 'SELECT COUNT(*) FROM visual_story_history WHERE user_id = %s'
+                    count_params = (user_id,)
+                else:
+                    count_query = 'SELECT COUNT(*) FROM visual_story_history WHERE user_id = ?'
+                    count_params = (user_id,)
+                
+                cursor.execute(count_query, count_params)
+                total_count = cursor.fetchone()[0]
+                
+                # Format results
+                story_list = []
+                for row in rows:
+                    try:
+                        story = dict(zip(columns, row))
+                        story_list.append(story)
+                    except Exception as format_error:
+                        print(f"Error formatting visual story: {format_error}")
+                        continue
+                
+                # Calculate total pages
+                total_pages = (total_count + per_page - 1) // per_page if total_count > 0 else 1
+                
+                response_data = {
+                    'success': True,
+                    'data': story_list,
+                    'pagination': {
+                        'limit': limit,
+                        'offset': offset,
+                        'page': page,
+                        'per_page': per_page,
+                        'total': total_count,
+                        'total_pages': total_pages,
+                        'has_more': offset + per_page < total_count
+                    }
+                }
+                
+                print(f"[VISUAL_STORY DEBUG] Returning {len(story_list)} visual story records")
+                
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.send_header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+                self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Cookie')
+                self.end_headers()
+                
+                self.wfile.write(json.dumps(response_data, ensure_ascii=False).encode('utf-8'))
+                
+            finally:
+                conn.close()
+                
+        except Exception as e:
+            print(f"[VISUAL_STORY DEBUG] Exception in handle_visual_story_history: {str(e)}")
+            
+            self.send_response(500)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                'success': False,
+                'error': f'获取视觉故事历史失败: {str(e)}'
+            }).encode('utf-8'))
+    
+    def handle_delete_visual_story(self, story_id, query_params):
+        """处理删除视觉故事历史请求"""
+        try:
+            print(f"[DELETE VISUAL_STORY DEBUG] Starting visual story deletion for ID: {story_id}")
+            
+            # Parse cookies for authentication
+            cookies = {}
+            cookie_header = self.headers.get('Cookie', '')
+            if cookie_header:
+                for item in cookie_header.split(';'):
+                    if '=' in item:
+                        key, value = item.strip().split('=', 1)
+                        cookies[key] = urllib.parse.unquote(value)
+            
+            req_data = {
+                'method': 'DELETE',
+                'body': {},
+                'cookies': cookies,
+                'headers': dict(self.headers)
+            }
+            
+            # Check user authentication
+            print(f"[DELETE VISUAL_STORY DEBUG] Checking authentication...")
+            user_id = require_auth(req_data)
+            if not user_id:
+                print(f"[DELETE VISUAL_STORY DEBUG] Authentication failed")
+                self.send_response(401)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    'success': False,
+                    'error': '请先登录'
+                }).encode('utf-8'))
+                return
+            
+            print(f"[DELETE VISUAL_STORY DEBUG] User authenticated: {user_id}")
+            
+            # Initialize database
+            db.init_database()
+            
+            conn = db.get_connection()
+            cursor = conn.cursor()
+            
+            try:
+                # Verify record exists and belongs to current user
+                use_postgres = getattr(db, 'use_postgres', False)
+                
+                if use_postgres:
+                    select_query = "SELECT id FROM visual_story_history WHERE id = %s AND user_id = %s"
+                    delete_query = "DELETE FROM visual_story_history WHERE id = %s AND user_id = %s"
+                else:
+                    select_query = "SELECT id FROM visual_story_history WHERE id = ? AND user_id = ?"
+                    delete_query = "DELETE FROM visual_story_history WHERE id = ? AND user_id = ?"
+                
+                cursor.execute(select_query, (story_id, user_id))
+                
+                if not cursor.fetchone():
+                    self.send_response(404)
+                    self.send_header('Content-Type', 'application/json')
+                    self.send_header('Access-Control-Allow-Origin', '*')
+                    self.end_headers()
+                    self.wfile.write(json.dumps({
+                        'success': False,
+                        'error': '视觉故事记录不存在或无权删除'
+                    }).encode('utf-8'))
+                    return
+                
+                # Delete the record
+                cursor.execute(delete_query, (story_id, user_id))
+                conn.commit()
+                
+                print(f"[DELETE VISUAL_STORY DEBUG] Successfully deleted visual story ID: {story_id}")
+                
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.send_header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+                self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Cookie')
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    'success': True,
+                    'message': '删除成功'
+                }, ensure_ascii=False).encode('utf-8'))
+                
+            finally:
+                conn.close()
+                
+        except Exception as e:
+            print(f"[DELETE VISUAL_STORY DEBUG] Exception in handle_delete_visual_story: {str(e)}")
+            self.send_response(500)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                'success': False,
+                'error': f'删除视觉故事失败: {str(e)}'
+            }).encode('utf-8'))
+    
     def handle_cleanup(self):
         """Clean up corrupted recreate_history data"""
         try:
@@ -445,6 +655,33 @@ class handler(BaseHTTPRequestHandler):
                     history_id = None
                     print(f"[DELETE HISTORY DEBUG] Failed to parse history_id")
             
+            # Check if this is a visual story deletion request
+            request_type = query_params.get('type', [''])[0]
+            if request_type == 'visual-story':
+                # Handle visual story deletion
+                story_id = None
+                if 'story_id' in query_params:
+                    try:
+                        story_id = int(query_params['story_id'][0])
+                        print(f"[DELETE VISUAL_STORY DEBUG] Extracted story_id: {story_id}")
+                    except (ValueError, IndexError):
+                        story_id = None
+                        print(f"[DELETE VISUAL_STORY DEBUG] Failed to parse story_id")
+                
+                if not story_id:
+                    self.send_response(400)
+                    self.send_header('Content-Type', 'application/json')
+                    self.send_header('Access-Control-Allow-Origin', '*')
+                    self.end_headers()
+                    self.wfile.write(json.dumps({
+                        'success': False,
+                        'error': '缺少视觉故事ID或ID格式错误'
+                    }).encode('utf-8'))
+                    return
+                
+                return self.handle_delete_visual_story(story_id, query_params)
+            
+            # Default: handle recreate history deletion
             if not history_id:
                 self.send_response(400)
                 self.send_header('Content-Type', 'application/json')
