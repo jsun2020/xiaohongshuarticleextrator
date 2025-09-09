@@ -135,15 +135,48 @@ class handler(BaseHTTPRequestHandler):
                     
                     print(f"[VISUAL_STORY DEBUG] Using model: {model}")
                     
-                    # 生成多个视觉故事图片
-                    story_elements = [
-                        f"标题场景：{title}，创建一个视觉吸引人的封面图片",
-                        f"基于内容：{content}，生成第一个故事场景的插图",
-                        f"基于内容：{content}，生成第二个故事场景的插图",
-                        f"基于内容：{content}，生成第三个故事场景的插图"
-                    ]
+                    # 翻译中文内容为英文提示词
+                    def translate_to_english_prompt(chinese_text, prompt_type="general"):
+                        """将中文内容转换为适合图像生成的英文提示词"""
+                        # 简单的关键词映射和翻译逻辑
+                        translations = {
+                            # 技术相关
+                            "更新": "update", "升级": "upgrade", "版本": "version", "功能": "feature",
+                            "工具": "tool", "软件": "software", "代码": "code", "编程": "programming",
+                            "效率": "efficiency", "性能": "performance", "优化": "optimization",
+                            "安全": "security", "界面": "interface", "体验": "experience",
+                            "CLI": "CLI", "命令行": "command line", "终端": "terminal",
+                            
+                            # 视觉相关
+                            "科技": "technology", "未来": "futuristic", "现代": "modern",
+                            "炫酷": "cool", "专业": "professional", "简洁": "clean",
+                            "创新": "innovative", "智能": "smart", "高级": "advanced"
+                        }
+                        
+                        # 根据内容生成英文提示词
+                        if "CLI" in chinese_text or "命令行" in chinese_text or "代码" in chinese_text:
+                            if prompt_type == "cover":
+                                return "Professional tech software update cover, modern CLI terminal interface, glowing code elements, futuristic blue and purple gradient, sleek design, 4K quality"
+                            else:
+                                return f"Technology illustration showing software development, command line interface, coding environment, modern UI design, tech innovation theme, scene {prompt_type}"
+                        elif "更新" in chinese_text or "升级" in chinese_text:
+                            if prompt_type == "cover":
+                                return "Software update announcement cover, modern tech design, upgrade arrows, glowing interface elements, professional gradient background, clean typography space"
+                            else:
+                                return f"Software upgrade illustration, modern interface design, progress indicators, tech innovation, professional style, scene {prompt_type}"
+                        elif "工具" in chinese_text or "效率" in chinese_text:
+                            if prompt_type == "cover":
+                                return "Productivity tool cover design, efficiency concept, modern workflow visualization, clean professional interface, tech productivity theme"
+                            else:
+                                return f"Productivity and efficiency illustration, workflow optimization, modern tools interface, professional design, scene {prompt_type}"
+                        else:
+                            # 通用科技主题
+                            if prompt_type == "cover":
+                                return "Modern technology cover design, innovative software interface, professional tech theme, clean design, futuristic elements"
+                            else:
+                                return f"Technology and innovation illustration, modern interface design, professional tech theme, clean style, scene {prompt_type}"
                     
-                    print(f"[VISUAL_STORY DEBUG] Generating {len(story_elements)} images...")
+                    print(f"[VISUAL_STORY DEBUG] Generating images with English prompts...")
                     
                     # 调用Gemini API
                     base_url = "https://api.tu-zi.com"
@@ -153,8 +186,8 @@ class handler(BaseHTTPRequestHandler):
                         'Authorization': f'Bearer {api_key}'
                     }
                     
-                    # 生成封面图片
-                    cover_prompt = f"Generate a beautiful cover image for: {title}. Style: artistic, colorful, engaging visual story cover."
+                    # 生成封面图片 (使用英文提示词)
+                    cover_prompt = translate_to_english_prompt(title + " " + content, "cover")
                     payload = {
                         "contents": [{
                             "parts": [{
@@ -210,13 +243,16 @@ class handler(BaseHTTPRequestHandler):
                                 structured_story['cover_card']['image_url'] = f"data:image/svg+xml;base64,{base64.b64encode(fallback_svg.encode()).decode()}"
                                 print(f"[VISUAL_STORY DEBUG] Using fallback cover image")
                             
-                            # Generate content images
+                            # Generate content images (使用英文提示词)
                             content_images = []
                             content_prompts = [
-                                f"Create an illustration for: {content[:200]}. Style: artistic, story illustration, scene 1.",
-                                f"Create an illustration for: {content[:200]}. Style: artistic, story illustration, scene 2.", 
-                                f"Create an illustration for: {content[:200]}. Style: artistic, story illustration, scene 3."
+                                translate_to_english_prompt(title + " " + content, "1"),
+                                translate_to_english_prompt(title + " " + content, "2"), 
+                                translate_to_english_prompt(title + " " + content, "3")
                             ]
+                            
+                            print(f"[VISUAL_STORY DEBUG] Cover prompt: {cover_prompt}")
+                            print(f"[VISUAL_STORY DEBUG] Content prompts: {content_prompts}")
                             
                             for i, prompt in enumerate(content_prompts):
                                 print(f"[VISUAL_STORY DEBUG] Generating content image {i+1}...")
