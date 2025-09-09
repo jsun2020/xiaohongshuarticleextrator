@@ -133,25 +133,15 @@ class handler(BaseHTTPRequestHandler):
                     
                     print(f"[VISUAL_STORY DEBUG] Using model: {model}")
                     
-                    # 生成提示词
-                    prompt = f"""
-根据以下标题和内容，生成一个视觉故事描述。请用中文回复，包含详细的视觉元素描述。
-
-标题：{title}
-
-内容：{content}
-
-请生成一个包含以下元素的视觉故事：
-1. 场景描述
-2. 人物形象
-3. 色彩搭配
-4. 构图建议
-5. 氛围营造
-
-请以JSON格式返回，包含story_description字段。
-"""
+                    # 生成多个视觉故事图片
+                    story_elements = [
+                        f"标题场景：{title}，创建一个视觉吸引人的封面图片",
+                        f"基于内容：{content}，生成第一个故事场景的插图",
+                        f"基于内容：{content}，生成第二个故事场景的插图",
+                        f"基于内容：{content}，生成第三个故事场景的插图"
+                    ]
                     
-                    print(f"[VISUAL_STORY DEBUG] Sending request to Gemini API...")
+                    print(f"[VISUAL_STORY DEBUG] Generating {len(story_elements)} images...")
                     
                     # 调用Gemini API
                     base_url = "https://api.tu-zi.com"
@@ -161,12 +151,15 @@ class handler(BaseHTTPRequestHandler):
                         'Authorization': f'Bearer {api_key}'
                     }
                     
+                    # 生成封面图片
+                    cover_prompt = f"Generate a beautiful cover image for: {title}. Style: artistic, colorful, engaging visual story cover."
                     payload = {
                         "contents": [{
                             "parts": [{
-                                "text": prompt
+                                "text": cover_prompt
                             }]
-                        }]
+                        }],
+                        "generationConfig": {"maxOutputTokens": 7680, "temperature": 0.1}
                     }
                     
                     response = requests.post(gemini_url, headers=headers, json=payload, timeout=30)
@@ -174,128 +167,146 @@ class handler(BaseHTTPRequestHandler):
                     if response.status_code == 200:
                         response_data = response.json()
                         if 'candidates' in response_data and len(response_data['candidates']) > 0:
-                            story_result = response_data['candidates'][0]['content']['parts'][0]['text']
-                            print(f"[VISUAL_STORY DEBUG] Gemini response received: {len(story_result)} characters")
+                            print(f"[VISUAL_STORY DEBUG] Processing Gemini response for cover image...")
                             
-                            # Parse and structure the visual story response
-                            try:
-                                import re
-                                
-                                # Try to parse JSON if it's in the response
-                                json_match = re.search(r'\{.*\}', story_result, re.DOTALL)
-                                structured_story = None
-                                
-                                if json_match:
-                                    try:
-                                        parsed_json = json.loads(json_match.group())
-                                        print(f"[VISUAL_STORY DEBUG] Parsed JSON structure: {parsed_json}")
-                                        
-                                        # Create structured visual story data
-                                        def create_svg_placeholder(text, bg_color="6366f1", text_color="ffffff", width=600, height=800):
-                                            """Generate SVG data URI for placeholder image"""
-                                            svg_text = text[:20].replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-                                            svg = f'''<svg width="{width}" height="{height}" xmlns="http://www.w3.org/2000/svg">
-<rect width="100%" height="100%" fill="#{bg_color}"/>
-<text x="50%" y="50%" font-family="Arial,sans-serif" font-size="24" fill="#{text_color}" text-anchor="middle" dy=".3em">{svg_text}</text>
+                            # Initialize structured story data
+                            structured_story = {
+                                'cover_card': {
+                                    'title': title,
+                                    'layout': 'c',
+                                    'image_url': None
+                                },
+                                'content_cards': [],
+                                'html': content
+                            }
+                            
+                            # Process cover image
+                            candidate = response_data['candidates'][0]
+                            cover_image_url = None
+                            
+                            for part in candidate['content']['parts']:
+                                if 'text' in part:
+                                    print(f"[VISUAL_STORY DEBUG] Cover text response: {part['text'][:100]}...")
+                                elif 'inlineData' in part:
+                                    # Handle generated image
+                                    print(f"[VISUAL_STORY DEBUG] Found generated cover image")
+                                    image_data = part['inlineData']['data']
+                                    mime_type = part['inlineData']['mimeType']
+                                    cover_image_url = f"data:{mime_type};base64,{image_data}"
+                                    break
+                            
+                            # Set cover image
+                            if cover_image_url:
+                                structured_story['cover_card']['image_url'] = cover_image_url
+                                print(f"[VISUAL_STORY DEBUG] Cover image set successfully")
+                            else:
+                                # Fallback if no image generated
+                                import base64
+                                fallback_svg = f'''<svg width="600" height="800" xmlns="http://www.w3.org/2000/svg">
+<rect width="100%" height="100%" fill="#6366f1"/>
+<text x="50%" y="50%" font-family="Arial,sans-serif" font-size="24" fill="#ffffff" text-anchor="middle" dy=".3em">{title[:20]}</text>
 </svg>'''
-                                            import base64
-                                            return f"data:image/svg+xml;base64,{base64.b64encode(svg.encode()).decode()}"
-                                        
-                                        structured_story = {
-                                            'cover_card': {
-                                                'title': title,
-                                                'layout': 'c',
-                                                'image_url': create_svg_placeholder(title, "6366f1", "ffffff")
-                                            },
-                                            'content_cards': [],
-                                            'html': story_result
-                                        }
-                                        
-                                        # Process story elements
-                                        if 'story_description' in parsed_json:
-                                            for i, element in enumerate(parsed_json['story_description'][:8]):  # Max 8 cards
-                                                if isinstance(element, dict):
-                                                    element_title = element.get('element', f'场景 {i+1}')
-                                                    element_desc = element.get('description', '')[:100] + '...'
-                                                    
-                                                    # Generate SVG placeholder with description
-                                                    layouts = ['a', 'b', 'c']
-                                                    colors = ["8b5cf6", "06b6d4", "10b981", "f59e0b", "ef4444", "ec4899"]
-                                                    
-                                                    structured_story['content_cards'].append({
-                                                        'title': element_title,
-                                                        'content': element_desc,
-                                                        'layout': layouts[i % 3],
-                                                        'image_url': create_svg_placeholder(element_title, colors[i % len(colors)], "ffffff")
-                                                    })
-                                    except json.JSONDecodeError:
-                                        print(f"[VISUAL_STORY DEBUG] Failed to parse JSON, using fallback")
+                                structured_story['cover_card']['image_url'] = f"data:image/svg+xml;base64,{base64.b64encode(fallback_svg.encode()).decode()}"
+                                print(f"[VISUAL_STORY DEBUG] Using fallback cover image")
+                            
+                            # Generate content images
+                            content_images = []
+                            content_prompts = [
+                                f"Create an illustration for: {content[:200]}. Style: artistic, story illustration, scene 1.",
+                                f"Create an illustration for: {content[:200]}. Style: artistic, story illustration, scene 2.", 
+                                f"Create an illustration for: {content[:200]}. Style: artistic, story illustration, scene 3."
+                            ]
+                            
+                            for i, prompt in enumerate(content_prompts):
+                                print(f"[VISUAL_STORY DEBUG] Generating content image {i+1}...")
+                                content_payload = {
+                                    "contents": [{
+                                        "parts": [{
+                                            "text": prompt
+                                        }]
+                                    }],
+                                    "generationConfig": {"maxOutputTokens": 7680, "temperature": 0.3}
+                                }
                                 
-                                # If no structured data, create basic fallback
-                                if not structured_story:
-                                    def create_svg_placeholder_fallback(text, bg_color="6366f1", text_color="ffffff", width=600, height=800):
-                                        """Generate SVG data URI for placeholder image"""
-                                        svg_text = text[:20].replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-                                        svg = f'''<svg width="{width}" height="{height}" xmlns="http://www.w3.org/2000/svg">
-<rect width="100%" height="100%" fill="#{bg_color}"/>
-<text x="50%" y="50%" font-family="Arial,sans-serif" font-size="24" fill="#{text_color}" text-anchor="middle" dy=".3em">{svg_text}</text>
+                                content_response = requests.post(gemini_url, headers=headers, json=content_payload, timeout=30)
+                                
+                                if content_response.status_code == 200:
+                                    content_data = content_response.json()
+                                    if 'candidates' in content_data and len(content_data['candidates']) > 0:
+                                        content_candidate = content_data['candidates'][0]
+                                        content_image_url = None
+                                        
+                                        for part in content_candidate['content']['parts']:
+                                            if 'inlineData' in part:
+                                                image_data = part['inlineData']['data']
+                                                mime_type = part['inlineData']['mimeType']
+                                                content_image_url = f"data:{mime_type};base64,{image_data}"
+                                                break
+                                        
+                                        # Add content card
+                                        layouts = ['a', 'b', 'c']
+                                        if content_image_url:
+                                            structured_story['content_cards'].append({
+                                                'title': f'场景 {i+1}',
+                                                'content': content[:100] + '...',
+                                                'layout': layouts[i % 3],
+                                                'image_url': content_image_url
+                                            })
+                                            print(f"[VISUAL_STORY DEBUG] Content image {i+1} generated successfully")
+                                        else:
+                                            # Fallback content image
+                                            colors = ["8b5cf6", "06b6d4", "10b981"]
+                                            fallback_svg = f'''<svg width="600" height="800" xmlns="http://www.w3.org/2000/svg">
+<rect width="100%" height="100%" fill="#{colors[i]}"/>
+<text x="50%" y="50%" font-family="Arial,sans-serif" font-size="24" fill="#ffffff" text-anchor="middle" dy=".3em">场景 {i+1}</text>
 </svg>'''
-                                        import base64
-                                        return f"data:image/svg+xml;base64,{base64.b64encode(svg.encode()).decode()}"
-                                    
-                                    structured_story = {
-                                        'cover_card': {
-                                            'title': title,
-                                            'layout': 'c',
-                                            'image_url': create_svg_placeholder_fallback(title, "6366f1", "ffffff")
-                                        },
-                                        'content_cards': [{
-                                            'title': '生成的视觉故事',
-                                            'content': story_result[:200] + '...' if len(story_result) > 200 else story_result,
-                                            'layout': 'a',
-                                            'image_url': create_svg_placeholder_fallback('Visual Story', "8b5cf6", "ffffff")
-                                        }],
-                                        'html': story_result
-                                    }
+                                            structured_story['content_cards'].append({
+                                                'title': f'场景 {i+1}',
+                                                'content': content[:100] + '...',
+                                                'layout': layouts[i % 3],
+                                                'image_url': f"data:image/svg+xml;base64,{base64.b64encode(fallback_svg.encode()).decode()}"
+                                            })
+                                            print(f"[VISUAL_STORY DEBUG] Using fallback for content image {i+1}")
                                 
-                                # 保存到数据库 (save structured data as JSON)
-                                created_at = datetime.now().isoformat()
-                                story_data_json = json.dumps(structured_story, ensure_ascii=False)
-                                
-                                if use_postgres:
-                                    cursor.execute("""
-                                        INSERT INTO visual_story_history 
-                                        (history_id, user_id, title, content, html_content, model_used, created_at)
-                                        VALUES (%s, %s, %s, %s, %s, %s, %s)
-                                    """, (history_id, user_id, title, content, story_data_json, model, created_at))
-                                else:
-                                    cursor.execute("""
-                                        INSERT INTO visual_story_history 
-                                        (history_id, user_id, title, content, html_content, model_used, created_at)
-                                        VALUES (?, ?, ?, ?, ?, ?, ?)
-                                    """, (history_id, user_id, title, content, story_data_json, model, created_at))
-                                
-                                story_id = cursor.lastrowid
-                                conn.commit()
-                                
-                                print(f"[VISUAL_STORY DEBUG] Story saved to database with ID: {story_id}")
-                                
-                                self.send_json_response({
-                                    'success': True,
-                                    'message': '视觉故事生成成功',
-                                    'data': {
-                                        'story_id': story_id,
-                                        'visual_story': structured_story,
-                                        'model_used': model,
-                                        'created_at': created_at
-                                    }
-                                }, 200)
-                                return
-                                
-                            except Exception as parse_error:
-                                print(f"[VISUAL_STORY DEBUG] Parsing error: {str(parse_error)}")
-                                # Fallback to original behavior
-                                pass
+                                # Add small delay between requests
+                                import time
+                                time.sleep(0.5)
+                            
+                            print(f"[VISUAL_STORY DEBUG] Generated {len(structured_story['content_cards'])} content images")
+                            
+                            # 保存到数据库 (save structured data as JSON)
+                            created_at = datetime.now().isoformat()
+                            story_data_json = json.dumps(structured_story, ensure_ascii=False)
+                            
+                            if use_postgres:
+                                cursor.execute("""
+                                    INSERT INTO visual_story_history 
+                                    (history_id, user_id, title, content, html_content, model_used, created_at)
+                                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                                """, (history_id, user_id, title, content, story_data_json, model, created_at))
+                            else:
+                                cursor.execute("""
+                                    INSERT INTO visual_story_history 
+                                    (history_id, user_id, title, content, html_content, model_used, created_at)
+                                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                                """, (history_id, user_id, title, content, story_data_json, model, created_at))
+                            
+                            story_id = cursor.lastrowid
+                            conn.commit()
+                            
+                            print(f"[VISUAL_STORY DEBUG] Story saved to database with ID: {story_id}")
+                            
+                            self.send_json_response({
+                                'success': True,
+                                'message': '视觉故事生成成功',
+                                'data': {
+                                    'story_id': story_id,
+                                    'visual_story': structured_story,
+                                    'model_used': model,
+                                    'created_at': created_at
+                                }
+                            }, 200)
+                            return
                         else:
                             print(f"[VISUAL_STORY DEBUG] No candidates in Gemini response")
                             self.send_json_response({
