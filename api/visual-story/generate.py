@@ -12,6 +12,8 @@ from http.server import BaseHTTPRequestHandler
 import json
 from datetime import datetime
 import requests
+import base64
+import time
 
 class handler(BaseHTTPRequestHandler):
     def do_OPTIONS(self):
@@ -201,7 +203,6 @@ class handler(BaseHTTPRequestHandler):
                                 print(f"[VISUAL_STORY DEBUG] Cover image set successfully")
                             else:
                                 # Fallback if no image generated
-                                import base64
                                 fallback_svg = f'''<svg width="600" height="800" xmlns="http://www.w3.org/2000/svg">
 <rect width="100%" height="100%" fill="#6366f1"/>
 <text x="50%" y="50%" font-family="Arial,sans-serif" font-size="24" fill="#ffffff" text-anchor="middle" dy=".3em">{title[:20]}</text>
@@ -269,7 +270,6 @@ class handler(BaseHTTPRequestHandler):
                                             print(f"[VISUAL_STORY DEBUG] Using fallback for content image {i+1}")
                                 
                                 # Add small delay between requests
-                                import time
                                 time.sleep(0.5)
                             
                             print(f"[VISUAL_STORY DEBUG] Generated {len(structured_story['content_cards'])} content images")
