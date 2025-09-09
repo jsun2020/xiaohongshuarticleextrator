@@ -122,12 +122,12 @@ class handler(BaseHTTPRequestHandler):
                     print(f"[VISUAL_STORY DEBUG] Preparing Gemini API call...")
                     
                     # 获取API密钥
-                    api_key = os.environ.get('GEMINI_API_KEY')
+                    api_key = os.environ.get('MY_GEMINI_API_KEY')
                     if not api_key:
-                        print(f"[VISUAL_STORY DEBUG] GEMINI_API_KEY not found")
+                        print(f"[VISUAL_STORY DEBUG] MY_GEMINI_API_KEY not found")
                         self.send_json_response({
                             'success': False,
-                            'error': 'Gemini API密钥未配置，请检查环境变量GEMINI_API_KEY'
+                            'error': 'Gemini API密钥未配置，请检查环境变量MY_GEMINI_API_KEY'
                         }, 500)
                         return
                     
@@ -154,10 +154,11 @@ class handler(BaseHTTPRequestHandler):
                     print(f"[VISUAL_STORY DEBUG] Sending request to Gemini API...")
                     
                     # 调用Gemini API
-                    gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+                    base_url = "https://api.tu-zi.com"
+                    gemini_url = f"{base_url}/v1beta/models/{model}:generateContent"
                     headers = {
                         'Content-Type': 'application/json',
-                        'x-goog-api-key': api_key
+                        'Authorization': f'Bearer {api_key}'
                     }
                     
                     payload = {
