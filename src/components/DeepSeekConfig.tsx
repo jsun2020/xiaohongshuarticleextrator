@@ -36,7 +36,7 @@ export default function DeepSeekConfig({ open, onOpenChange }: DeepSeekConfigPro
     max_tokens: number
   }>({
     api_key: '',
-    model: 'gemini-2.0-flash-exp',
+    model: 'gemini-2.5-flash-image',
     temperature: 0.7,
     max_tokens: 1000
   })
@@ -80,7 +80,7 @@ export default function DeepSeekConfig({ open, onOpenChange }: DeepSeekConfigPro
         // Gemini config
         setGeminiConfig({
           api_key: configData.gemini_api_key || '',
-          model: configData.gemini_model || 'gemini-2.0-flash-exp',
+          model: configData.gemini_model || 'gemini-2.5-flash-image',
           temperature: parseFloat(configData.gemini_temperature) || 0.7,
           max_tokens: parseInt(configData.gemini_max_tokens) || 1000
         })
@@ -495,6 +495,7 @@ export default function DeepSeekConfig({ open, onOpenChange }: DeepSeekConfigPro
                       value={geminiConfig.model}
                       onChange={(e) => handleGeminiInputChange('model', e.target.value)}
                     >
+                      <option value="gemini-2.5-flash-image">gemini-2.5-flash-image</option>
                       <option value="gemini-2.0-flash-exp">gemini-2.0-flash-exp</option>
                       <option value="gemini-1.5-flash">gemini-1.5-flash</option>
                       <option value="gemini-1.5-pro">gemini-1.5-pro</option>
@@ -541,7 +542,7 @@ export default function DeepSeekConfig({ open, onOpenChange }: DeepSeekConfigPro
               <CardContent className="pt-6">
                 <h4 className="font-medium text-purple-900 mb-2">🌟 视觉故事功能</h4>
                 <p className="text-sm text-purple-800 mb-2">
-                  新用户可以免费体验视觉故事生成功能<strong> 10 次</strong>！
+                  新用户可以免费体验视觉故事生成功能<strong> 3 次</strong>！
                 </p>
                 <p className="text-sm text-purple-700">
                   试用次数用完后，请配置您自己的Gemini API Key继续使用。

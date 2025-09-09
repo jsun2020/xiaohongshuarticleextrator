@@ -465,7 +465,7 @@ def generate_visual_story():
         history_id = data['history_id']
         title = data['title']
         content = data['content']
-        model = data.get('model', 'gemini-2.0-flash-exp')
+        model = data.get('model', 'gemini-2.5-flash-image')
         
         # Get user's Gemini API key
         user_config = db.get_user_config(user_id)
@@ -480,7 +480,7 @@ def generate_visual_story():
         # Check user credits/usage (if using platform API key)
         platform_key = config.get('gemini_api_key', '')  # Platform default key
         visual_story_used = 0
-        max_free_usage = 10
+        max_free_usage = 3
         
         if gemini_api_key == platform_key:
             # User is using platform key, check limits
