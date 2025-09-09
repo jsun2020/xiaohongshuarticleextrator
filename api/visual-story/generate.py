@@ -215,6 +215,188 @@ class handler(BaseHTTPRequestHandler):
                                 'html': content
                             }
                             
+                            # Function to generate complete HTML with images
+                            def generate_complete_html(story_data, title, content):
+                                """Generate complete HTML with embedded images for download"""
+                                html_content = f'''
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{title}</title>
+    <style>
+        body {{
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }}
+        .container {{
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }}
+        .header {{
+            text-align: center;
+            margin-bottom: 40px;
+            padding-bottom: 20px;
+            border-bottom: 3px solid #667eea;
+        }}
+        .header h1 {{
+            color: #333;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }}
+        .cover-section {{
+            margin-bottom: 40px;
+            text-align: center;
+        }}
+        .cover-image {{
+            max-width: 600px;
+            width: 100%;
+            height: auto;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 20px;
+        }}
+        .content-section {{
+            margin-bottom: 40px;
+        }}
+        .content-text {{
+            background: #f8f9ff;
+            padding: 25px;
+            border-radius: 15px;
+            border-left: 5px solid #667eea;
+            font-size: 1.1em;
+            line-height: 1.8;
+            color: #444;
+        }}
+        .scenes-section {{
+            margin-top: 40px;
+        }}
+        .scenes-title {{
+            text-align: center;
+            color: #333;
+            font-size: 2em;
+            margin-bottom: 30px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+        }}
+        .scene-grid {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 30px;
+            margin-top: 30px;
+        }}
+        .scene-card {{
+            background: white;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+        }}
+        .scene-card:hover {{
+            transform: translateY(-5px);
+        }}
+        .scene-image {{
+            width: 100%;
+            height: 250px;
+            object-fit: cover;
+        }}
+        .scene-content {{
+            padding: 20px;
+        }}
+        .scene-title {{
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 10px;
+        }}
+        .scene-description {{
+            color: #666;
+            font-size: 1em;
+            line-height: 1.6;
+        }}
+        .footer {{
+            text-align: center;
+            margin-top: 50px;
+            padding-top: 20px;
+            border-top: 2px solid #667eea;
+            color: #666;
+            font-size: 0.9em;
+        }}
+        @media (max-width: 768px) {{
+            .container {{
+                padding: 20px;
+                margin: 10px;
+            }}
+            .header h1 {{
+                font-size: 2em;
+            }}
+            .scene-grid {{
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }}
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>{title}</h1>
+        </div>
+        
+        <div class="cover-section">
+            <img src="{story_data['cover_card']['image_url']}" alt="封面图片" class="cover-image" />
+        </div>
+        
+        <div class="content-section">
+            <div class="content-text">
+                {content.replace(chr(10), '<br>')}
+            </div>
+        </div>
+        
+        <div class="scenes-section">
+            <h2 class="scenes-title">视觉故事场景</h2>
+            <div class="scene-grid">
+'''
+                                
+                                # Add scene cards
+                                for i, card in enumerate(story_data['content_cards']):
+                                    html_content += f'''
+                <div class="scene-card">
+                    <img src="{card['image_url']}" alt="{card['title']}" class="scene-image" />
+                    <div class="scene-content">
+                        <div class="scene-title">{card['title']}</div>
+                        <div class="scene-description">{card['content']}</div>
+                    </div>
+                </div>
+'''
+                                
+                                html_content += '''
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>🎨 由 AI 视觉故事生成器创建</p>
+            <p>Generated by AI Visual Story Generator</p>
+        </div>
+    </div>
+</body>
+</html>
+'''
+                                return html_content
+                            
                             # Process cover image
                             candidate = response_data['candidates'][0]
                             cover_image_url = None
@@ -309,6 +491,11 @@ class handler(BaseHTTPRequestHandler):
                                 time.sleep(0.5)
                             
                             print(f"[VISUAL_STORY DEBUG] Generated {len(structured_story['content_cards'])} content images")
+                            
+                            # Generate complete HTML with embedded images
+                            complete_html = generate_complete_html(structured_story, title, content)
+                            structured_story['html'] = complete_html
+                            print(f"[VISUAL_STORY DEBUG] Generated complete HTML with {len(structured_story['content_cards'])} images")
                             
                             # 保存到数据库 (save structured data as JSON)
                             created_at = datetime.now().isoformat()
