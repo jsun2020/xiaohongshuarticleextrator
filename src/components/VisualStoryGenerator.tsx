@@ -257,14 +257,15 @@ export default function VisualStoryGenerator({ open, onOpenChange, historyItem }
           {/* Results Display */}
           {visualStory && (
             <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
+              <CardHeader className="pb-2 sticky top-0 bg-white z-10 border-b">
+                <div className="flex items-center justify-between flex-wrap gap-2">
                   <CardTitle className="text-base">生成结果</CardTitle>
-                  <div className="flex space-x-2">
+                  <div className="flex space-x-2 shrink-0">
                     <Button
                       variant={activeTab === 'preview' ? 'default' : 'outline'}
                       size="sm"
                       onClick={() => setActiveTab('preview')}
+                      className="min-w-[80px] relative z-20"
                     >
                       <Eye className="h-4 w-4 mr-2" />
                       预览
@@ -273,6 +274,7 @@ export default function VisualStoryGenerator({ open, onOpenChange, historyItem }
                       variant={activeTab === 'html' ? 'default' : 'outline'}
                       size="sm"
                       onClick={() => setActiveTab('html')}
+                      className="min-w-[70px] relative z-20"
                     >
                       HTML
                     </Button>
@@ -383,12 +385,17 @@ export default function VisualStoryGenerator({ open, onOpenChange, historyItem }
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    <div className="bg-gray-50 p-4 rounded-lg">
-                      <pre className="text-xs text-gray-800 overflow-x-auto whitespace-pre-wrap max-h-60">
+                    <div className="bg-gray-50 p-4 rounded-lg border">
+                      <div className="text-xs text-gray-600 mb-2 font-medium">HTML 代码预览：</div>
+                      <pre className="text-xs text-gray-800 overflow-x-auto whitespace-pre-wrap max-h-80 bg-white p-3 rounded border">
                         {visualStory.html}
                       </pre>
                     </div>
-                    <div className="flex space-x-2">
+                    <div className="flex space-x-2 pt-2">
+                      <Button onClick={handlePreviewHTML} variant="outline">
+                        <Eye className="h-4 w-4 mr-2" />
+                        预览HTML
+                      </Button>
                       <Button onClick={handleDownloadHTML}>
                         <Download className="h-4 w-4 mr-2" />
                         下载HTML文件
