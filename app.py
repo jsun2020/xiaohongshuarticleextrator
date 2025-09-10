@@ -60,9 +60,7 @@ def get_note():
             note_data['original_url'] = url  # 添加原始URL
             
             user_id = get_current_user_id()
-            print(f"🔍 DEBUG: Flask app - user_id from session: {user_id}, type: {type(user_id)}")
             save_success = db.save_note(note_data, user_id)
-            print(f"🔍 DEBUG: Flask app - save_success: {save_success}")
             result['saved_to_db'] = save_success
             
             return jsonify(result), 200
