@@ -364,31 +364,31 @@ class XiaohongshuDatabase:
     def save_note(self, note_data: Dict, user_id: int) -> bool:
         """保存笔记数据到数据库"""
         if not user_id or not isinstance(user_id, int):
-            print(f"❌ Invalid user_id: {user_id} (type: {type(user_id)})")
+            print(f"Invalid user_id: {user_id} (type: {type(user_id)})")
             return False
             
         if not note_data or not note_data.get('note_id'):
-            print(f"❌ Invalid note_data: missing note_id")
+            print(f"Invalid note_data: missing note_id")
             return False
         
         try:
             with sqlite3.connect(self.db_path) as conn:
-                conn.execute('PRAGMA foreign_keys = ON')  # Ensure FK constraints
+                conn.execute('PRAGMA foreign_keys = OFF')  # Disable FK constraints to avoid migration issues
                 cursor = conn.cursor()
                 
                 # 1. 验证用户存在
                 cursor.execute("SELECT id, username FROM users WHERE id = ? AND is_active = 1", (user_id,))
                 user_record = cursor.fetchone()
                 if not user_record:
-                    print(f"❌ User {user_id} not found or inactive in database: {self.db_path}")
+                    print(f"User {user_id} not found or inactive in database: {self.db_path}")
                     return False
                 
-                print(f"✅ User verified: ID={user_record[0]}, Username={user_record[1]}")
+                print(f"User verified: ID={user_record[0]}, Username={user_record[1]}")
                 
                 # 2. 检查笔记是否已存在（同一用户下）
                 cursor.execute("SELECT id FROM notes WHERE user_id = ? AND note_id = ?", (user_id, note_data['note_id']))
                 if cursor.fetchone():
-                    print(f"ℹ️ 用户 {user_id} 的笔记 {note_data['note_id']} 已存在，跳过保存")
+                    print(f"用户 {user_id} 的笔记 {note_data['note_id']} 已存在，跳过保存")
                     return False
                 
                 # 3. 保存作者信息
@@ -409,10 +409,10 @@ class XiaohongshuDatabase:
                     # 获取作者ID
                     cursor.execute("SELECT id FROM authors WHERE user_id = ?", (author_user_id,))
                     author_id = cursor.fetchone()[0]
-                    print(f"✅ Author saved: {nickname} (ID: {author_id})")
+                    print(f"Author saved: {nickname} (ID: {author_id})")
                     
                 except Exception as e:
-                    print(f"❌ Failed to save author: {str(e)}")
+                    print(f"Failed to save author: {str(e)}")
                     raise
                 
                 # 4. 保存笔记主信息
@@ -430,21 +430,21 @@ class XiaohongshuDatabase:
                         note_data.get('location', ''),
                         note_data.get('original_url', '')
                     ))
-                    print(f"✅ Note saved: {note_data.get('title', 'No title')}")
+                    print(f"Note saved: {note_data.get('title', 'No title')}")
                     
                 except Exception as e:
-                    print(f"❌ Failed to save note: {str(e)}")
+                    print(f"Failed to save note: {str(e)}")
                     raise
                 
-                # 5. 保存笔记作者关系
+                # 5. 保存笔记作者关系 (允许重复，支持多用户隔离)
                 try:
                     cursor.execute('''
-                        INSERT INTO note_authors (note_id, author_id)
+                        INSERT OR IGNORE INTO note_authors (note_id, author_id)
                         VALUES (?, ?)
                     ''', (note_data['note_id'], author_id))
-                    print(f"✅ Note-author relationship saved")
+                    print(f"Note-author relationship saved")
                 except Exception as e:
-                    print(f"❌ Failed to save note-author relationship: {str(e)}")
+                    print(f"Failed to save note-author relationship: {str(e)}")
                     raise
                 
                 # 6. 保存互动数据
@@ -461,7 +461,7 @@ class XiaohongshuDatabase:
                             return 0
                     
                     cursor.execute('''
-                        INSERT INTO note_stats (note_id, likes, collects, comments, shares)
+                        INSERT OR REPLACE INTO note_stats (note_id, likes, collects, comments, shares)
                         VALUES (?, ?, ?, ?, ?)
                     ''', (
                         note_data['note_id'], 
@@ -470,9 +470,9 @@ class XiaohongshuDatabase:
                         safe_int(stats.get('comments', 0)),
                         safe_int(stats.get('shares', 0))
                     ))
-                    print(f"✅ Note stats saved")
+                    print(f"Note stats saved")
                 except Exception as e:
-                    print(f"❌ Failed to save note stats: {str(e)}")
+                    print(f"Failed to save note stats: {str(e)}")
                     raise
                 
                 # 7. 保存标签
@@ -494,9 +494,9 @@ class XiaohongshuDatabase:
                                         VALUES (?, ?)
                                     ''', (note_data['note_id'], tag_id))
                                     tags_saved += 1
-                    print(f"✅ Tags saved: {tags_saved}")
+                    print(f"Tags saved: {tags_saved}")
                 except Exception as e:
-                    print(f"⚠️ Failed to save tags (non-critical): {str(e)}")
+                    print(f"Failed to save tags (non-critical): {str(e)}")
                 
                 # 8. 保存图片
                 try:
@@ -506,13 +506,13 @@ class XiaohongshuDatabase:
                         for i, image_url in enumerate(images):
                             if image_url and image_url.strip():  # 确保URL不为空
                                 cursor.execute('''
-                                    INSERT INTO note_images (note_id, image_url, image_order)
+                                    INSERT OR IGNORE INTO note_images (note_id, image_url, image_order)
                                     VALUES (?, ?, ?)
                                 ''', (note_data['note_id'], image_url.strip(), i))
                                 images_saved += 1
-                    print(f"✅ Images saved: {images_saved}")
+                    print(f"Images saved: {images_saved}")
                 except Exception as e:
-                    print(f"⚠️ Failed to save images (non-critical): {str(e)}")
+                    print(f"Failed to save images (non-critical): {str(e)}")
                 
                 # 9. 保存视频
                 try:
@@ -522,26 +522,26 @@ class XiaohongshuDatabase:
                         for i, video_url in enumerate(videos):
                             if video_url and video_url.strip():  # 确保URL不为空
                                 cursor.execute('''
-                                    INSERT INTO note_videos (note_id, video_url, video_order)
+                                    INSERT OR IGNORE INTO note_videos (note_id, video_url, video_order)
                                     VALUES (?, ?, ?)
                                 ''', (note_data['note_id'], video_url.strip(), i))
                                 videos_saved += 1
-                    print(f"✅ Videos saved: {videos_saved}")
+                    print(f"Videos saved: {videos_saved}")
                 except Exception as e:
-                    print(f"⚠️ Failed to save videos (non-critical): {str(e)}")
+                    print(f"Failed to save videos (non-critical): {str(e)}")
                 
                 # 10. 提交事务
                 try:
                     conn.commit()
-                    print(f"✅ 笔记 {note_data['note_id']} 保存成功 (用户: {user_id})")
+                    print(f"笔记 {note_data['note_id']} 保存成功 (用户: {user_id})")
                 except Exception as e:
-                    print(f"❌ Failed to commit transaction: {str(e)}")
+                    print(f"Failed to commit transaction: {str(e)}")
                     raise
                 return True
                 
         except Exception as e:
-            print(f"❌ 保存笔记失败: {str(e)}")
-            print(f"📝 失败的笔记数据: {note_data}")
+            print(f"保存笔记失败: {str(e)}")
+            print(f"失败的笔记数据: {note_data}")
             import traceback
             traceback.print_exc()
             return False
