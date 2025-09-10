@@ -362,20 +362,20 @@ class XiaohongshuDatabase:
                 
                 # 保存作者信息
                 author_data = note_data.get('author', {})
-                user_id = author_data.get('user_id', '')
+                author_user_id = author_data.get('user_id', '')
                 nickname = author_data.get('nickname', '未知用户')
                 avatar = author_data.get('avatar', '')
                 
-                if not user_id:
-                    user_id = f"unknown_{note_data['note_id']}"
+                if not author_user_id:
+                    author_user_id = f"unknown_{note_data['note_id']}"
                 
                 cursor.execute('''
                     INSERT OR REPLACE INTO authors (user_id, nickname, avatar, updated_at)
                     VALUES (?, ?, ?, CURRENT_TIMESTAMP)
-                ''', (user_id, nickname, avatar))
+                ''', (author_user_id, nickname, avatar))
                 
                 # 获取作者ID
-                cursor.execute("SELECT id FROM authors WHERE user_id = ?", (user_id,))
+                cursor.execute("SELECT id FROM authors WHERE user_id = ?", (author_user_id,))
                 author_id = cursor.fetchone()[0]
                 
                 # 保存笔记主信息
