@@ -32,7 +32,12 @@ def require_auth(f):
 
 def get_current_user_id():
     """获取当前登录用户ID"""
-    return session.get('user_id')
+    user_id = session.get('user_id')
+    if user_id:
+        print(f"✅ 当前用户ID: {user_id} (类型: {type(user_id)})")
+    else:
+        print(f"❌ 未获取到用户ID，session: {dict(session)}")
+    return user_id
 
 @app.route('/api/xiaohongshu/note', methods=['POST'])
 @require_auth
@@ -205,6 +210,7 @@ def login():
         session['logged_in'] = True
         session['user_id'] = user['id']
         session['username'] = user['username']
+        print(f"✅ 会话已设置: user_id={user['id']}, username={user['username']}")
         
         return jsonify({
             'success': True,
@@ -635,11 +641,16 @@ def get_visual_story_history():
 @app.route('/api/health', methods=['GET'])
 def health_check():
     """健康检查接口"""
+    db_state = db.verify_database_state()
+    
     return jsonify({
         'status': 'healthy',
         'message': '小红书笔记采集API服务正常运行',
         'database_status': 'connected',
-        'total_notes': db.get_notes_count(),
+        'database_path': db_state.get('database_path', 'unknown'),
+        'total_users': db_state.get('total_users', 0),
+        'active_users': db_state.get('active_users', 0),
+        'total_notes': db_state.get('total_notes', 0),
         'deepseek_configured': config.validate_deepseek_config()
     }), 200
 
