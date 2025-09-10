@@ -350,9 +350,20 @@ class XiaohongshuDatabase:
     
     def save_note(self, note_data: Dict, user_id: int) -> bool:
         """保存笔记数据到数据库"""
+        print(f"🔍 DEBUG: save_note called with user_id={user_id}, type={type(user_id)}")
+        print(f"🔍 DEBUG: note_data keys: {list(note_data.keys()) if note_data else 'None'}")
         try:
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
+                
+                # 验证用户是否存在
+                cursor.execute("SELECT id FROM users WHERE id = ?", (user_id,))
+                user_exists = cursor.fetchone()
+                print(f"🔍 DEBUG: user_id {user_id} exists in database: {user_exists is not None}")
+                
+                if not user_exists:
+                    print(f"❌ ERROR: User {user_id} not found in database")
+                    return False
                 
                 # 检查笔记是否已存在（同一用户下）
                 cursor.execute("SELECT id FROM notes WHERE user_id = ? AND note_id = ?", (user_id, note_data['note_id']))
@@ -369,16 +380,20 @@ class XiaohongshuDatabase:
                 if not author_user_id:
                     author_user_id = f"unknown_{note_data['note_id']}"
                 
+                print(f"🔍 DEBUG: About to insert author - author_user_id={author_user_id}, nickname={nickname}")
                 cursor.execute('''
                     INSERT OR REPLACE INTO authors (user_id, nickname, avatar, updated_at)
                     VALUES (?, ?, ?, CURRENT_TIMESTAMP)
                 ''', (author_user_id, nickname, avatar))
+                print("✅ DEBUG: Author inserted successfully")
                 
                 # 获取作者ID
                 cursor.execute("SELECT id FROM authors WHERE user_id = ?", (author_user_id,))
                 author_id = cursor.fetchone()[0]
+                print(f"🔍 DEBUG: Got author_id={author_id}")
                 
                 # 保存笔记主信息
+                print(f"🔍 DEBUG: About to insert note - user_id={user_id}, note_id={note_data.get('note_id', '')}")
                 cursor.execute('''
                     INSERT INTO notes (user_id, note_id, title, content, type, publish_time, location, original_url)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -392,6 +407,7 @@ class XiaohongshuDatabase:
                     note_data.get('location', ''),
                     note_data.get('original_url', '')
                 ))
+                print("✅ DEBUG: Note inserted successfully")
                 
                 # 保存笔记作者关系
                 cursor.execute('''
@@ -459,7 +475,9 @@ class XiaohongshuDatabase:
                                 VALUES (?, ?, ?)
                             ''', (note_data['note_id'], video_url.strip(), i))
                 
+                print("🔍 DEBUG: About to commit transaction...")
                 conn.commit()
+                print(f"✅ DEBUG: Transaction committed successfully")
                 print(f"✅ 笔记 {note_data['note_id']} 保存成功")
                 return True
                 
