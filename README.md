@@ -7,19 +7,22 @@
 ## ✨ 功能特性
 
 - 📝 **数据采集**: 输入链接自动提取笔记信息
-- 💾 **数据存储**: SQLite数据库持久化存储  
+- 💾 **数据存储**: SQLite/PostgreSQL数据库持久化存储  
 - 📊 **数据管理**: 可视化界面查看和管理笔记
 - 🤖 **AI二创**: 基于DeepSeek API的智能笔记重创
+- 🎨 **视觉故事生成**: 基于Gemini AI的图文故事创作（NEW!）
 - 📋 **历史记录**: 完整的二创历史追踪和管理
 - 🔄 **实时同步**: 前后端实时数据交互
 - 🔐 **用户认证**: 简洁的登录界面保护数据安全
+- 🆓 **免费试用**: 新用户享有免费AI功能体验额度
 
 ## 🛠️ 技术栈
 
 ### 后端
 - **Python Serverless Functions** - Vercel兼容的无服务器函数
-- **SQLite/云数据库** - 数据库（支持多种数据库）
-- **DeepSeek API** - AI二创服务
+- **SQLite/PostgreSQL** - 数据库（支持本地和云端）
+- **DeepSeek API** - AI文本生成服务
+- **Gemini API** - AI图像生成服务
 - **JWT认证** - 无状态认证系统
 - **Requests** - HTTP请求库
 
@@ -123,16 +126,46 @@ npm run dev
 3. 支持原始内容与二创内容对比
 4. 可复制和删除历史记录
 
+### 5. 🎨 AI视觉故事生成 (NEW!)
+
+1. 在"二创历史"页面，找到想要生成视觉故事的记录
+2. 点击"生成视觉故事"按钮
+3. 系统自动将中文内容转换为英文提示词
+4. AI生成1张封面图 + 3张内容插图（真实AI生成图像）
+5. 支持"预览"和"HTML"两种查看模式
+6. 可一键下载完整的HTML文件（包含所有图片）
+
+**特色功能：**
+- 🖼️ **真实图像生成**: 使用Gemini-2.5-Flash-Image生成高质量图片
+- 🌐 **智能翻译**: 中文内容自动转换为专业英文提示词
+- 📱 **响应式设计**: 支持多种卡片布局和屏幕适配
+- 💾 **离线可用**: 下载的HTML文件包含所有图片，无需网络即可查看
+- 🆓 **免费体验**: 新用户享有3次免费生成机会
+
 ## ⚙️ 配置说明
 
-### DeepSeek API配置
+### API配置中心
 
+系统支持双AI引擎配置，点击右上角"设置"按钮进入配置中心：
+
+#### DeepSeek API配置
 1. 访问 [DeepSeek平台](https://platform.deepseek.com) 获取API Key
-2. 在系统设置中配置API参数：
+2. 在"DeepSeek"标签页中配置：
    - **API Key**: 您的DeepSeek API密钥
    - **模型**: deepseek-chat 或 deepseek-reasoner
    - **温度**: 控制创造性（0.1-1.0）
    - **最大Token**: 控制生成长度
+3. **免费额度**: 新用户享有3次免费AI二创机会
+
+#### Gemini API配置
+1. 访问 [Google AI Studio](https://ai.google.dev/) 获取Gemini API Key
+2. 在"Gemini"标签页中配置：
+   - **API Key**: 您的Gemini API密钥
+   - **模型**: gemini-2.5-flash-image（推荐）、gemini-2.0-flash-exp等
+   - **温度**: 控制图像生成创造性（0.1-1.0）
+   - **最大Token**: 控制生成详细度
+3. **免费额度**: 新用户享有3次免费视觉故事生成机会
+   - (目前使用了兔子API中转，可将generate.py中API调用改为google的genai库使用gemini官方API，效果一样)
 
 ### 环境变量
 
@@ -165,12 +198,16 @@ NEXT_PUBLIC_API_URL=http://localhost:5000
 
 系统使用SQLite数据库，包含以下主要表：
 
+- **users** - 用户信息管理
+- **user_config** - 用户配置存储
 - **notes** - 笔记主表
 - **authors** - 作者信息
 - **note_stats** - 互动数据
 - **tags** - 标签管理
 - **note_images/videos** - 媒体文件
 - **recreate_history** - 二创历史记录
+- **visual_story_history** - 视觉故事生成历史
+- **usage_tracking** - 用户使用量跟踪
 
 ## 🔧 API接口
 
@@ -188,6 +225,9 @@ NEXT_PUBLIC_API_URL=http://localhost:5000
 - `POST /api/xiaohongshu/recreate` - AI二创笔记
 - `GET /api/xiaohongshu/recreate/history` - 获取历史记录
 - `DELETE /api/xiaohongshu/recreate/history/{id}` - 删除历史
+
+### 视觉故事接口 (NEW!)
+- `POST /api/visual-story/generate` - AI视觉故事生成
 
 ### 配置接口
 - `GET/POST /api/deepseek/config` - DeepSeek配置管理
@@ -211,7 +251,13 @@ NEXT_PUBLIC_API_URL=http://localhost:5000
 - 确认API余额充足
 - 测试API连接状态
 
-### 4. 数据库错误
+### 4. 视觉故事生成失败
+- 检查Gemini API Key是否正确
+- 确认使用的是支持图像生成的模型（如gemini-2.5-flash-image）
+- 检查网络连接是否能访问Google服务
+- 确认免费额度是否已用完
+
+### 5. 数据库错误
 - 删除数据库文件重新初始化
 - 检查磁盘空间
 - 确认文件权限
@@ -235,4 +281,4 @@ NEXT_PUBLIC_API_URL=http://localhost:5000
 
 ---
 
-**⚠️ 免责声明**: 本工具仅用于学习和研究目的，请遵守小红书平台的使用条款和相关法律法规。# Force deployment
+**⚠️ 免责声明**: 本工具仅用于学习和研究目的，请遵守小红书平台的使用条款和相关法律法规。
