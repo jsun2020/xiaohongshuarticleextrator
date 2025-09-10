@@ -223,22 +223,22 @@ class XiaohongshuDatabase:
                 cursor.execute("SELECT id, username FROM users WHERE id = ?", (user_id,))
                 created_user = cursor.fetchone()
                 if created_user:
-                    print(f"✅ 用户 {username} 创建成功，ID: {user_id} (数据库: {self.db_path})")
+                    print(f"用户 {username} 创建成功，ID: {user_id} (数据库: {self.db_path})")
                     return user_id
                 else:
-                    print(f"❌ 用户创建验证失败: {username}")
+                    print(f"用户创建验证失败: {username}")
                     return None
                 
         except sqlite3.IntegrityError as e:
             if 'username' in str(e):
-                print(f"❌ 用户名 {username} 已存在")
+                print(f"用户名 {username} 已存在")
             elif 'email' in str(e):
-                print(f"❌ 邮箱 {email} 已存在")
+                print(f"邮箱 {email} 已存在")
             else:
-                print(f"❌ 创建用户失败: {str(e)}")
+                print(f"创建用户失败: {str(e)}")
             return None
         except Exception as e:
-            print(f"❌ 创建用户失败: {str(e)}")
+            print(f"创建用户失败: {str(e)}")
             return None
     
     def get_user_by_username(self, username: str) -> Optional[Dict]:
@@ -255,14 +255,14 @@ class XiaohongshuDatabase:
                 
                 user = cursor.fetchone()
                 if user:
-                    print(f"✅ 用户登录验证: {username} (ID: {user['id']}, 数据库: {self.db_path})")
+                    print(f"用户登录验证: {username} (ID: {user['id']}, 数据库: {self.db_path})")
                     return dict(user)
                 else:
-                    print(f"❌ 用户未找到或已停用: {username} (数据库: {self.db_path})")
+                    print(f"用户未找到或已停用: {username} (数据库: {self.db_path})")
                     return None
                 
         except Exception as e:
-            print(f"❌ 获取用户信息失败: {str(e)}")
+            print(f"获取用户信息失败: {str(e)}")
             return None
     
     def get_user_by_id(self, user_id: int) -> Optional[Dict]:
