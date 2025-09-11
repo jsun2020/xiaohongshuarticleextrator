@@ -390,20 +390,24 @@ class DatabaseManager:
                       note_data.get('original_url'), author_json, stats_json, images_json))
             
             conn.commit()
-            print(f"[SAVE] Committed to database for note_id: {note_data.get('note_id')}")
+            print(f"[SAVE] SUCCESS: Committed to database for note_id: {note_data.get('note_id')}, user_id: {user_id}")
             
             # Force verify the insert worked
             if not self.use_postgres:
                 cursor.execute("SELECT last_insert_rowid()")  
                 new_id = cursor.fetchone()[0]
-                print(f"[SAVE] New row ID: {new_id}")
+                print(f"[SAVE] SUCCESS: New row ID: {new_id}")
                 if not new_id:
                     print(f"[SAVE] ERROR: No row ID returned")
                     return False
             return True
             
         except Exception as e:
-            print(f"[SAVE] ERROR: 保存笔记失败: {e}")
+            print(f"[SAVE] ERROR: 保存笔记失败 for user {user_id}, note_id {note_data.get('note_id')}: {str(e)}")
+            print(f"[SAVE] ERROR: Exception type: {type(e).__name__}")
+            print(f"[SAVE] ERROR: Database type: {'PostgreSQL' if self.use_postgres else 'SQLite'}")
+            if hasattr(e, 'pgcode'):
+                print(f"[SAVE] ERROR: PostgreSQL error code: {e.pgcode}")
             conn.rollback()  # Explicit rollback on error
             return False
         finally:
