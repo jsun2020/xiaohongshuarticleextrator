@@ -110,7 +110,7 @@ class DatabaseManager:
                         note_id VARCHAR(100) NOT NULL,
                         title TEXT NOT NULL,
                         content TEXT,
-                        note_type VARCHAR(50),
+                        type VARCHAR(50),
                         publish_time VARCHAR(100),
                         location VARCHAR(200),
                         original_url TEXT,
@@ -118,7 +118,8 @@ class DatabaseManager:
                         stats_data TEXT,
                         images_data TEXT,
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        FOREIGN KEY (user_id) REFERENCES users (id)
+                        FOREIGN KEY (user_id) REFERENCES users (id),
+                        UNIQUE(user_id, note_id)
                     )
                 ''')
                 
@@ -196,7 +197,7 @@ class DatabaseManager:
                         note_id TEXT NOT NULL,
                         title TEXT NOT NULL,
                         content TEXT,
-                        note_type TEXT,
+                        type TEXT,
                         publish_time TEXT,
                         location TEXT,
                         original_url TEXT,
@@ -204,7 +205,8 @@ class DatabaseManager:
                         stats_data TEXT,
                         images_data TEXT,
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        FOREIGN KEY (user_id) REFERENCES users (id)
+                        FOREIGN KEY (user_id) REFERENCES users (id),
+                        UNIQUE(user_id, note_id)
                     )
                 ''')
                 
@@ -341,16 +343,16 @@ class DatabaseManager:
         cursor = conn.cursor()
         
         try:
-            # Check if note already exists
+            # Check if note already exists for this user
             if self.use_postgres:
-                cursor.execute('SELECT id FROM notes WHERE note_id = %s', (note_data.get('note_id'),))
+                cursor.execute('SELECT id FROM notes WHERE user_id = %s AND note_id = %s', (user_id, note_data.get('note_id')))
             else:
-                cursor.execute('SELECT id FROM notes WHERE note_id = ?', (note_data.get('note_id'),))
+                cursor.execute('SELECT id FROM notes WHERE user_id = ? AND note_id = ?', (user_id, note_data.get('note_id')))
             
             existing = cursor.fetchone()
             if existing:
-                print(f"[SAVE] Note {note_data.get('note_id')} already exists in database")
-                return False  # Note already exists
+                print(f"[SAVE] Note {note_data.get('note_id')} already exists for user {user_id}")
+                return False  # Note already exists for this user
             
             # 处理JSON数据
             author_json = json.dumps(note_data.get('author', {}), ensure_ascii=False)
@@ -368,7 +370,7 @@ class DatabaseManager:
             
             if self.use_postgres:
                 cursor.execute('''
-                    INSERT INTO notes (user_id, note_id, title, content, note_type, 
+                    INSERT INTO notes (user_id, note_id, title, content, type, 
                                      publish_time, location, original_url, author_data, 
                                      stats_data, images_data)
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
@@ -378,7 +380,7 @@ class DatabaseManager:
                       note_data.get('original_url'), author_json, stats_json, images_json))
             else:
                 cursor.execute('''
-                    INSERT INTO notes (user_id, note_id, title, content, note_type, 
+                    INSERT INTO notes (user_id, note_id, title, content, type, 
                                      publish_time, location, original_url, author_data, 
                                      stats_data, images_data)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
