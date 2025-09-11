@@ -88,7 +88,7 @@ export const authAPI = {
 // 笔记相关API
 export const notesAPI = {
   collect: (url: string, cookies?: string) =>
-    api.post('/xiaohongshu/note', { url, cookies }),
+    api.post('/xiaohongshu_notes_list', { url, cookies }),
   
   getList: (limit = 20, offset = 0) =>
     api.get(`/xiaohongshu_notes_list?limit=${limit}&offset=${offset}&_t=${Date.now()}`),
